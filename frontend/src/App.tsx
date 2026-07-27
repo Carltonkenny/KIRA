@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Trash2, Copy, Send, Check, RefreshCw, Settings, Database, Brain, MessageSquare } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://localhost:8090';
 
 interface Memory {
   id: string;
