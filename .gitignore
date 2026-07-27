@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+.env.local
+.env.*.local
+.pytest_cache/
+.vscode/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# System/IDE
+.DS_Store
+Thumbs.db
+.agents/
+mcp_config.json
