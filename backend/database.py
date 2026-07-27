@@ -70,7 +70,10 @@ class DatabaseManager:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         try:
-            cursor.execute(query, params)
+            if ";" in query and not params:
+                cursor.executescript(query)
+            else:
+                cursor.execute(query, params)
             conn.commit()
             if cursor.description:
                 columns = [col[0] for col in cursor.description]
