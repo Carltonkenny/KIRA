@@ -5,6 +5,7 @@ from database import DatabaseManager
 @pytest.fixture
 def mock_db_manager():
     manager = DatabaseManager()
+    manager.use_sqlite = False
     manager.pool = MagicMock()
     return manager
 

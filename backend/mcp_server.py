@@ -5,6 +5,8 @@ from mcp.server.fastmcp import FastMCP
 from database import db
 from refiner import refine_prompt
 from config import get_llm_client, get_model_name
+import classifier
+import memory
 
 # Initialize FastMCP Server
 mcp = FastMCP("Kira-IDE-Partner")
@@ -42,6 +44,62 @@ async def forge_refine(prompt: str, session_id: str, density: str = "short") -> 
     await db.save_history(
         user_id=user_id,
         session_id=session_id,
+        role="user",
+        message=prompt,
+        refined_prompt=result.refined_prompt
+    )
+    
+    # Return refined prompt
+    return result.refined_prompt
+
+@mcp.tool()
+async def kira_enhance(
+    prompt: str, 
+    agent_name: str = "", 
+    session_id: str = "",
+    density: str = "short"
+) -> str:
+    """
+    KIRA's smart prompt enhancement tool.
+    Intercepts prompt, decides whether to enhance or pass through based on classifier rules.
+    If enhancing, uses Mem0/SQLite memories to optimize prompt via DeepSeek.
+    
+    Args:
+        prompt: The raw developer prompt.
+        agent_name: The calling agent (e.g. 'opencode', 'antigravity'). For per-agent memory scoping.
+        session_id: A unique identifier for the current session to link history.
+        density: Target density budget ('short', 'medium', or 'detailed').
+    """
+    user_id = "local_user"
+    
+    # 1. Check skip classifier
+    classification = classifier.classify(prompt)
+    if classification["action"] == "pass_through":
+        print(f"KIRA INFO: Pass-through prompt. Reason: {classification['reason']}", file=sys.stderr)
+        return prompt
+        
+    # 2. Initialize DB tables
+    await db.initialize_tables()
+    
+    # 3. Recall context from Mem0/local fallback
+    memories = await memory.recall(prompt, user_id=user_id, agent_name=agent_name)
+    
+    # 4. Fetch profile (from local DB/postgres as usual)
+    profile = await db.get_profile(user_id)
+    
+    # 5. Call refiner (LLM structured call)
+    result = refine_prompt(prompt, profile, memories, density=density)
+    
+    # 6. Save newly learned memories
+    for fact in result.new_memories:
+        await memory.remember(fact, user_id=user_id, agent_name=agent_name)
+        print(f"KIRA learned memory: {fact}", file=sys.stderr)
+        
+    # 7. Save to chat history (for iterative chat tool to work)
+    active_session_id = session_id if session_id else f"session-{agent_name if agent_name else 'generic'}"
+    await db.save_history(
+        user_id=user_id,
+        session_id=active_session_id,
         role="user",
         message=prompt,
         refined_prompt=result.refined_prompt
@@ -158,20 +216,26 @@ Produce a JSON response:
     return f"{chat_reply}\n\n---\n\n{new_refined}"
 
 @mcp.tool()
-async def get_kira_memories() -> str:
+async def get_kira_memories(agent_name: str = "") -> str:
     """
     Returns all auto-learned and manual facts saved in KIRA's memory.
+    
+    Args:
+        agent_name: Optional agent name to filter memories.
     """
     user_id = "local_user"
     await db.initialize_tables()
     
-    memories = await db.get_memories(user_id)
+    memories = await memory.get_all_memories(user_id=user_id, agent_name=agent_name)
     if not memories:
         return "KIRA has not recorded any memories yet."
         
-    result = "### KIRA Current Memories\n"
+    result = f"### KIRA Current Memories (Agent: {agent_name or 'All'})\n"
     for m in memories:
-        result += f"- [{m['category']}] {m['fact']} (ID: {m['id']})\n"
+        category = m.get("category", "auto_learned")
+        fact = m.get("fact", "")
+        mem_id = m.get("id", "N/A")
+        result += f"- [{category}] {fact} (ID: {mem_id})\n"
     return result
 
 if __name__ == "__main__":

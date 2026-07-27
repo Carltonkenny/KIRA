@@ -1,0 +1,17 @@
+// OpenCode JSON Configuration Template
+// Save this in your opencode.jsonc config file
+
+{
+  "mcpServers": {
+    "kira": {
+      "command": "python",
+      "args": ["c:/Users/user/OneDrive/Desktop/KIRA/backend/mcp_server.py"],
+      "env": {
+        "PYTHONPATH": "c:/Users/user/OneDrive/Desktop/KIRA/backend"
+      }
+    }
+  },
+  
+  // Rule to force OpenCode to call KIRA before executing tasks
+  "instructions": "Before executing any complex code writing, refactoring, or feature planning, call the KIRA MCP server tool `kira_enhance` with your current prompt and set `agent_name` to 'opencode'. Use the returned prompt to perform the task."
+}

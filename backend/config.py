@@ -17,6 +17,9 @@ POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql+asyncpg://postgres:postgres
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
 
+# Mem0 Configuration
+MEM0_API_KEY = os.getenv("MEM0_API_KEY", "")
+
 # Fallback Configuration: If DeepSeek is not provided, use Pollinations AI (free, OpenAI-compatible, no key required)
 LLM_PROVIDER = "deepseek"
 if not DEEPSEEK_API_KEY or DEEPSEEK_API_KEY.strip() == "" or "your-deepseek" in DEEPSEEK_API_KEY:
