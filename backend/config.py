@@ -7,7 +7,7 @@ load_dotenv()
 
 # Mode selection
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-PORT = int(os.getenv("PORT", "8000"))
+PORT = int(os.getenv("PORT", "8090"))
 
 # Database Configuration
 # Default to a local Postgres database

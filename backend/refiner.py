@@ -87,7 +87,7 @@ def refine_prompt(
         # Standard OpenAI / DeepSeek structured completion format
         # Try utilizing client.beta.chat.completions.parse which handles Pydantic natively
         # Fall back to manual parsing if client is not configured for beta or fails
-        if model == "deepseek-chat" or "openai" in model:
+        if (model == "deepseek-chat") or ("openai" in model):
             response = client.beta.chat.completions.parse(
                 model=model,
                 messages=[

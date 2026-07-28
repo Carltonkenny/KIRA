@@ -22,3 +22,5 @@ dist-ssr/
 Thumbs.db
 .agents/
 mcp_config.json
+graphify-out/
+
