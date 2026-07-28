@@ -99,7 +99,7 @@ def refine_prompt(
             )
             return response.choices[0].message.parsed
     except Exception as e:
-        print(f"KIRA WARNING: Beta structured output failed. Falling back to manual JSON completion. Error: {e}")
+        print(f"KIRA WARNING: Beta structured output failed. Falling back to manual JSON completion. Error: {e}", file=sys.stderr)
 
     # Fallback: request JSON format and parse manually
     try:
@@ -123,7 +123,7 @@ def refine_prompt(
         return RefinerResponse(**data)
         
     except Exception as err:
-        print(f"KIRA ERROR: LLM chat generation failed entirely. Returning mock response. Error: {err}")
+        print(f"KIRA ERROR: LLM chat generation failed entirely. Returning mock response. Error: {err}", file=sys.stderr)
         # Return graceful mock response so the system doesn't crash
         return RefinerResponse(
             refined_prompt=f"### Refined Prompt\n{raw_prompt}\n\n*Note: LLM generation encountered a runtime issue. Please verify API configuration.*",

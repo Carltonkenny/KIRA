@@ -27,7 +27,7 @@ class DatabaseManager:
         self._initialized = True
 
         if self.use_sqlite:
-            print("KIRA INFO: Operating in local SQLite mode.")
+            print("KIRA INFO: Operating in local SQLite mode.", file=sys.stderr)
             return
 
         if self.pool is not None:
@@ -43,7 +43,7 @@ class DatabaseManager:
                 cleaned_url = cleaned_url.replace("postgres://", "postgresql://")
 
             self.pool = await asyncpg.create_pool(cleaned_url, min_size=1, max_size=10)
-            print("KIRA INFO: PostgreSQL pool initialized successfully.")
+            print("KIRA INFO: PostgreSQL pool initialized successfully.", file=sys.stderr)
         except Exception as e:
             print(f"KIRA WARNING: Failed to connect to PostgreSQL. Falling back to SQLite. Error: {e}", file=sys.stderr)
             self.use_sqlite = True
@@ -101,13 +101,13 @@ class DatabaseManager:
 
         if self.use_sqlite:
             self._execute_sqlite(schema_sql)
-            print("KIRA INFO: SQLite database tables initialized successfully.")
+            print("KIRA INFO: SQLite database tables initialized successfully.", file=sys.stderr)
             return
 
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 await conn.execute(schema_sql)
-        print("KIRA INFO: PostgreSQL database tables verified/created successfully.")
+        print("KIRA INFO: PostgreSQL database tables verified/created successfully.", file=sys.stderr)
 
     # --- Profile Operations ---
 
