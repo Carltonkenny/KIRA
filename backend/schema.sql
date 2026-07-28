@@ -30,3 +30,16 @@ CREATE TABLE IF NOT EXISTS chat_history (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_history_session ON chat_history(session_id);
+
+-- 4. MCP Logs: Execution metrics and trace logs for MCP tool calls
+CREATE TABLE IF NOT EXISTS mcp_logs (
+    id VARCHAR(255) PRIMARY KEY,
+    tool_name VARCHAR(100) NOT NULL,
+    agent_name VARCHAR(100),
+    arguments TEXT NOT NULL,
+    duration_ms FLOAT,
+    status VARCHAR(50) DEFAULT 'success',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_mcp_logs_tool ON mcp_logs(tool_name);
+

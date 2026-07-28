@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sys
+import time
 from mcp.server.fastmcp import FastMCP
 from database import db
 from refiner import refine_prompt
@@ -21,36 +22,50 @@ async def forge_refine(prompt: str, session_id: str, density: str = "short") -> 
         session_id: A unique identifier for the current coding/chat session.
         density: Target prompt density: 'short' (concise instructions), 'medium' (RPG persona style), or 'detailed' (full template).
     """
-    user_id = "local_user"
-    
-    # 1. Initialize tables & pool
-    await db.initialize_tables()
-    
-    # 2. Fetch context
-    profile = await db.get_profile(user_id)
-    memories = await db.get_memories(user_id)
-    
-    # 3. Call refiner (LLM structured call)
-    # Since refine_prompt is synchronous, we run it in a thread executor or run it directly
-    # for simplicity.
-    result = refine_prompt(prompt, profile, memories, density=density)
-    
-    # 4. Save learned memories
-    for fact in result.new_memories:
-        await db.add_memory(user_id, category="auto_learned", fact=fact)
-        print(f"KIRA learned memory: {fact}", file=sys.stderr)
+    start_t = time.perf_counter()
+    status = "success"
+    try:
+        user_id = "local_user"
         
-    # 5. Save history
-    await db.save_history(
-        user_id=user_id,
-        session_id=session_id,
-        role="user",
-        message=prompt,
-        refined_prompt=result.refined_prompt
-    )
-    
-    # Return refined prompt
-    return result.refined_prompt
+        # 1. Initialize tables & pool
+        await db.initialize_tables()
+        
+        # 2. Fetch context
+        profile = await db.get_profile(user_id)
+        memories = await db.get_memories(user_id)
+        
+        # 3. Call refiner (LLM structured call)
+        result = refine_prompt(prompt, profile, memories, density=density)
+        
+        # 4. Save learned memories
+        for fact in result.new_memories:
+            await db.add_memory(user_id, category="auto_learned", fact=fact)
+            print(f"KIRA learned memory: {fact}", file=sys.stderr)
+            
+        # 5. Save history
+        await db.save_history(
+            user_id=user_id,
+            session_id=session_id,
+            role="user",
+            message=prompt,
+            refined_prompt=result.refined_prompt
+        )
+        
+        # Return refined prompt
+        return result.refined_prompt
+    except Exception as e:
+        status = f"error: {str(e)}"
+        raise e
+    finally:
+        duration = (time.perf_counter() - start_t) * 1000.0
+        args_str = json.dumps({"prompt": prompt, "session_id": session_id, "density": density})
+        asyncio.create_task(db.save_mcp_log(
+            tool_name="forge_refine",
+            agent_name="frontend",
+            arguments=args_str,
+            duration_ms=duration,
+            status=status
+        ))
 
 @mcp.tool()
 async def kira_enhance(
@@ -70,43 +85,59 @@ async def kira_enhance(
         session_id: A unique identifier for the current session to link history.
         density: Target density budget ('short', 'medium', or 'detailed').
     """
-    user_id = "local_user"
-    
-    # 1. Check skip classifier
-    classification = classifier.classify(prompt)
-    if classification["action"] == "pass_through":
-        print(f"KIRA INFO: Pass-through prompt. Reason: {classification['reason']}", file=sys.stderr)
-        return prompt
+    start_t = time.perf_counter()
+    status = "success"
+    try:
+        user_id = "local_user"
         
-    # 2. Initialize DB tables
-    await db.initialize_tables()
-    
-    # 3. Recall context from Mem0/local fallback
-    memories = await memory.recall(prompt, user_id=user_id, agent_name=agent_name)
-    
-    # 4. Fetch profile (from local DB/postgres as usual)
-    profile = await db.get_profile(user_id)
-    
-    # 5. Call refiner (LLM structured call)
-    result = refine_prompt(prompt, profile, memories, density=density)
-    
-    # 6. Save newly learned memories
-    for fact in result.new_memories:
-        await memory.remember(fact, user_id=user_id, agent_name=agent_name)
-        print(f"KIRA learned memory: {fact}", file=sys.stderr)
+        # 1. Check skip classifier
+        classification = classifier.classify(prompt)
+        if classification["action"] == "pass_through":
+            print(f"KIRA INFO: Pass-through prompt. Reason: {classification['reason']}", file=sys.stderr)
+            return prompt
+            
+        # 2. Initialize DB tables
+        await db.initialize_tables()
         
-    # 7. Save to chat history (for iterative chat tool to work)
-    active_session_id = session_id if session_id else f"session-{agent_name if agent_name else 'generic'}"
-    await db.save_history(
-        user_id=user_id,
-        session_id=active_session_id,
-        role="user",
-        message=prompt,
-        refined_prompt=result.refined_prompt
-    )
-    
-    # Return refined prompt
-    return result.refined_prompt
+        # 3. Recall context from Mem0/local fallback
+        memories = await memory.recall(prompt, user_id=user_id, agent_name=agent_name)
+        
+        # 4. Fetch profile (from local DB/postgres as usual)
+        profile = await db.get_profile(user_id)
+        
+        # 5. Call refiner (LLM structured call)
+        result = refine_prompt(prompt, profile, memories, density=density)
+        
+        # 6. Save newly learned memories
+        for fact in result.new_memories:
+            await memory.remember(fact, user_id=user_id, agent_name=agent_name)
+            print(f"KIRA learned memory: {fact}", file=sys.stderr)
+            
+        # 7. Save to chat history (for iterative chat tool to work)
+        active_session_id = session_id if session_id else f"session-{agent_name if agent_name else 'generic'}"
+        await db.save_history(
+            user_id=user_id,
+            session_id=active_session_id,
+            role="user",
+            message=prompt,
+            refined_prompt=result.refined_prompt
+        )
+        
+        # Return refined prompt
+        return result.refined_prompt
+    except Exception as e:
+        status = f"error: {str(e)}"
+        raise e
+    finally:
+        duration = (time.perf_counter() - start_t) * 1000.0
+        args_str = json.dumps({"prompt": prompt, "agent_name": agent_name, "session_id": session_id, "density": density})
+        asyncio.create_task(db.save_mcp_log(
+            tool_name="kira_enhance",
+            agent_name=agent_name or "unknown",
+            arguments=args_str,
+            duration_ms=duration,
+            status=status
+        ))
 
 @mcp.tool()
 async def forge_chat(message: str, session_id: str) -> str:
@@ -118,34 +149,37 @@ async def forge_chat(message: str, session_id: str) -> str:
         message: The instruction or request to modify the previous prompt.
         session_id: The active session ID mapping to past history.
     """
-    user_id = "local_user"
-    
-    # 1. Initialize tables & pool
-    await db.initialize_tables()
-    
-    # 2. Fetch history
-    history = await db.get_history(session_id, limit=10)
-    profile = await db.get_profile(user_id)
-    memories = await db.get_memories(user_id)
-    
-    # Locate last refined prompt
-    last_refined = None
-    for turn in reversed(history):
-        if turn.get("refined_prompt"):
-            last_refined = turn["refined_prompt"]
-            break
-            
-    if not last_refined:
-        # If no history exists, refine this message as a raw prompt
-        refined = await forge_refine(message, session_id, density=profile.get("density_preference", "short"))
-        return f"Acknowledged. Initiating new prompt session.\n\n{refined}"
+    start_t = time.perf_counter()
+    status = "success"
+    try:
+        user_id = "local_user"
+        
+        # 1. Initialize tables & pool
+        await db.initialize_tables()
+        
+        # 2. Fetch history
+        history = await db.get_history(session_id, limit=10)
+        profile = await db.get_profile(user_id)
+        memories = await db.get_memories(user_id)
+        
+        # Locate last refined prompt
+        last_refined = None
+        for turn in reversed(history):
+            if turn.get("refined_prompt"):
+                last_refined = turn["refined_prompt"]
+                break
+                
+        if not last_refined:
+            # If no history exists, refine this message as a raw prompt
+            refined = await forge_refine(message, session_id, density=profile.get("density_preference", "short"))
+            return f"Acknowledged. Initiating new prompt session.\n\n{refined}"
 
-    # Build context for chat modifications
-    history_str = ""
-    for turn in history:
-        history_str += f"{turn['role'].upper()}: {turn['message']}\n"
+        # Build context for chat modifications
+        history_str = ""
+        for turn in history:
+            history_str += f"{turn['role'].upper()}: {turn['message']}\n"
 
-    system_prompt = f"""You are KIRA, an expert Prompt Architect. 
+        system_prompt = f"""You are KIRA, an expert Prompt Architect. 
 The user is having a chat to iteratively modify their previous refined prompt.
 
 --- USER PROFILE & MEMORIES ---
@@ -168,52 +202,65 @@ Produce a JSON response:
 }}
 """
 
-    client = get_llm_client()
-    model = get_model_name()
-    
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt + "\nReturn ONLY valid JSON. Do not wrap in markdown tags."},
-                {"role": "user", "content": f"Update request: '{message}'"}
-            ],
-            temperature=0.2
-        )
-        content = response.choices[0].message.content.strip()
+        client = get_llm_client()
+        model = get_model_name()
         
-        # Clean markdown wrappers if any
-        if content.startswith("```"):
-            lines = content.split("\n")
-            if lines[0].startswith("```json") or lines[0].startswith("```"):
-                content = "\n".join(lines[1:-1])
-                
-        data = json.loads(content)
-        chat_reply = data.get("response", "Prompt updated successfully.")
-        new_refined = data.get("refined_prompt", last_refined)
-        
-    except Exception as e:
-        print(f"KIRA ERROR: Conversational update failed: {e}", file=sys.stderr)
-        chat_reply = "Iterative update encountered an error. Applied basic append."
-        new_refined = f"{last_refined}\n\n*Applied change request: {message}*"
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt + "\nReturn ONLY valid JSON. Do not wrap in markdown tags."},
+                    {"role": "user", "content": f"Update request: '{message}'"}
+                ],
+                temperature=0.2
+            )
+            content = response.choices[0].message.content.strip()
+            
+            # Clean markdown wrappers if any
+            if content.startswith("```"):
+                lines = content.split("\n")
+                if lines[0].startswith("```json") or lines[0].startswith("```"):
+                    content = "\n".join(lines[1:-1])
+                    
+            data = json.loads(content)
+            chat_reply = data.get("response", "Prompt updated successfully.")
+            new_refined = data.get("refined_prompt", last_refined)
+            
+        except Exception as e:
+            print(f"KIRA ERROR: Conversational update failed: {e}", file=sys.stderr)
+            chat_reply = "Iterative update encountered an error. Applied basic append."
+            new_refined = f"{last_refined}\n\n*Applied change request: {message}*"
 
-    # Save to history
-    await db.save_history(
-        user_id=user_id,
-        session_id=session_id,
-        role="user",
-        message=message,
-        refined_prompt=None
-    )
-    await db.save_history(
-        user_id=user_id,
-        session_id=session_id,
-        role="assistant",
-        message=chat_reply,
-        refined_prompt=new_refined
-    )
-    
-    return f"{chat_reply}\n\n---\n\n{new_refined}"
+        # Save to history
+        await db.save_history(
+            user_id=user_id,
+            session_id=session_id,
+            role="user",
+            message=message,
+            refined_prompt=None
+        )
+        await db.save_history(
+            user_id=user_id,
+            session_id=session_id,
+            role="assistant",
+            message=chat_reply,
+            refined_prompt=new_refined
+        )
+        
+        return f"{chat_reply}\n\n---\n\n{new_refined}"
+    except Exception as e:
+        status = f"error: {str(e)}"
+        raise e
+    finally:
+        duration = (time.perf_counter() - start_t) * 1000.0
+        args_str = json.dumps({"message": message, "session_id": session_id})
+        asyncio.create_task(db.save_mcp_log(
+            tool_name="forge_chat",
+            agent_name="frontend",
+            arguments=args_str,
+            duration_ms=duration,
+            status=status
+        ))
 
 @mcp.tool()
 async def get_kira_memories(agent_name: str = "") -> str:
@@ -223,20 +270,36 @@ async def get_kira_memories(agent_name: str = "") -> str:
     Args:
         agent_name: Optional agent name to filter memories.
     """
-    user_id = "local_user"
-    await db.initialize_tables()
-    
-    memories = await memory.get_all_memories(user_id=user_id, agent_name=agent_name)
-    if not memories:
-        return "KIRA has not recorded any memories yet."
+    start_t = time.perf_counter()
+    status = "success"
+    try:
+        user_id = "local_user"
+        await db.initialize_tables()
         
-    result = f"### KIRA Current Memories (Agent: {agent_name or 'All'})\n"
-    for m in memories:
-        category = m.get("category", "auto_learned")
-        fact = m.get("fact", "")
-        mem_id = m.get("id", "N/A")
-        result += f"- [{category}] {fact} (ID: {mem_id})\n"
-    return result
+        memories = await memory.get_all_memories(user_id=user_id, agent_name=agent_name)
+        if not memories:
+            return "KIRA has not recorded any memories yet."
+            
+        result = f"### KIRA Current Memories (Agent: {agent_name or 'All'})\n"
+        for m in memories:
+            category = m.get("category", "auto_learned")
+            fact = m.get("fact", "")
+            mem_id = m.get("id", "N/A")
+            result += f"- [{category}] {fact} (ID: {mem_id})\n"
+        return result
+    except Exception as e:
+        status = f"error: {str(e)}"
+        raise e
+    finally:
+        duration = (time.perf_counter() - start_t) * 1000.0
+        args_str = json.dumps({"agent_name": agent_name})
+        asyncio.create_task(db.save_mcp_log(
+            tool_name="get_kira_memories",
+            agent_name=agent_name or "unknown",
+            arguments=args_str,
+            duration_ms=duration,
+            status=status
+        ))
 
 if __name__ == "__main__":
     # Standard fastmcp serve executor

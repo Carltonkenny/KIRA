@@ -290,5 +290,60 @@ class DatabaseManager:
             )
         return history_id
 
+    async def save_mcp_log(
+        self, tool_name: str, agent_name: str, arguments: str, duration_ms: float, status: str
+    ) -> str:
+        """Saves a new log trace for an MCP tool call."""
+        await self.initialize_pool()
+        log_id = f"log-{uuid.uuid4().hex[:12]}"
+
+        if self.use_sqlite:
+            self._execute_sqlite(
+                """
+                INSERT INTO mcp_logs (id, tool_name, agent_name, arguments, duration_ms, status, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+                """,
+                (log_id, tool_name, agent_name, arguments, duration_ms, status)
+            )
+            return log_id
+
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO mcp_logs (id, tool_name, agent_name, arguments, duration_ms, status, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+                """,
+                log_id, tool_name, agent_name, arguments, duration_ms, status
+            )
+        return log_id
+
+    async def get_mcp_logs(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Fetches the most recent MCP tool logs."""
+        await self.initialize_pool()
+
+        if self.use_sqlite:
+            return self._execute_sqlite(
+                """
+                SELECT id, tool_name, agent_name, arguments, duration_ms, status, created_at
+                FROM mcp_logs
+                ORDER BY created_at DESC
+                LIMIT $1
+                """,
+                (limit,)
+            )
+
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, tool_name, agent_name, arguments, duration_ms, status, created_at
+                FROM mcp_logs
+                ORDER BY created_at DESC
+                LIMIT $1
+                """,
+                limit
+            )
+            return [dict(row) for row in rows]
+
+
 # Global Database Manager instance
 db = DatabaseManager()

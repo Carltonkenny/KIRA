@@ -42,8 +42,6 @@ async def recall(query: str, user_id: str = "local_user", agent_name: str = "") 
     if client:
         try:
             filters = {"user_id": user_id}
-            if agent_name:
-                filters["agent_id"] = agent_name
             response = client.search(query, filters=filters)
             results = response.get("results", [])
             normalized = []
@@ -68,8 +66,6 @@ async def get_all_memories(user_id: str = "local_user", agent_name: str = "") ->
     if client:
         try:
             filters = {"user_id": user_id}
-            if agent_name:
-                filters["agent_id"] = agent_name
             response = client.get_all(filters=filters)
             results = response.get("results", [])
             normalized = []

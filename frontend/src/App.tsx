@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Trash2, Copy, Send, Check, RefreshCw, Settings, Database, Brain, MessageSquare } from 'lucide-react';
+import { Sparkles, Trash2, Copy, Send, Check, RefreshCw, Settings, Database, Brain, MessageSquare, Activity, Terminal, Clock } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8090';
 
@@ -47,11 +47,145 @@ export default function App() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
 
+  // Tab/View State
+  const [activeTab, setActiveTab] = useState<'forge' | 'logs'>('forge');
+
+  // MCP status state
+  interface MCPServer {
+    name: string;
+    command: string;
+    args: string[];
+    status: 'connected' | 'disconnected';
+    pid: number | null;
+  }
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
+
+  // Logs & Metrics state
+  interface MCPLog {
+    id: string;
+    tool_name: string;
+    agent_name: string;
+    arguments: string;
+    duration_ms: number;
+    status: string;
+    created_at: string;
+  }
+  const [mcpLogs, setMcpLogs] = useState<MCPLog[]>([]);
+
+  interface RefinementHistoryItem {
+    id: string;
+    session_id: string;
+    role: string;
+    message: string;
+    refined_prompt: string;
+    created_at: string;
+  }
+  const [historyList, setHistoryList] = useState<RefinementHistoryItem[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
   // Fetch initial profile and memories
   useEffect(() => {
     fetchProfile();
     fetchMemories();
   }, []);
+
+  // WebSocket for MCP status tracking with polling fallback
+  useEffect(() => {
+    let socket: WebSocket | null = null;
+    let pollInterval: NodeJS.Timeout | null = null;
+    let isMounted = true;
+
+    const startPolling = () => {
+      if (pollInterval) return;
+      console.log('Falling back to polling for MCP server status...');
+      const fetchStatus = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/mcp/status`);
+          if (res.ok && isMounted) {
+            const data = await res.json();
+            setMcpServers(data.servers);
+          }
+        } catch (e) {
+          console.error('Polling status fetch failed:', e);
+        }
+      };
+      fetchStatus();
+      pollInterval = setInterval(fetchStatus, 4000);
+    };
+
+    const connectWebSocket = () => {
+      try {
+        socket = new WebSocket(`ws://localhost:8090/api/v1/mcp/status/ws`);
+        
+        socket.onmessage = (event) => {
+          if (!isMounted) return;
+          try {
+            const data = JSON.parse(event.data);
+            if (data && data.servers) {
+              setMcpServers(data.servers);
+            }
+          } catch (err) {
+            console.error('Error parsing WS message:', err);
+          }
+        };
+
+        socket.onerror = (err) => {
+          console.warn('WebSocket error, switching to polling:', err);
+          startPolling();
+        };
+
+        socket.onclose = () => {
+          if (isMounted) {
+            console.warn('WebSocket closed, switching to polling...');
+            startPolling();
+          }
+        };
+      } catch (err) {
+        console.error('Failed to create WebSocket:', err);
+        startPolling();
+      }
+    };
+
+    connectWebSocket();
+
+    return () => {
+      isMounted = false;
+      if (socket) {
+        socket.close();
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, []);
+
+  const fetchLogsAndHistory = async () => {
+    setLogsLoading(true);
+    try {
+      const logsRes = await fetch(`${API_BASE}/api/v1/mcp/logs`);
+      if (logsRes.ok) {
+        const logsData = await logsRes.json();
+        setMcpLogs(logsData);
+      }
+      const historyRes = await fetch(`${API_BASE}/api/v1/history/all`);
+      if (historyRes.ok) {
+        const historyData = await historyRes.json();
+        setHistoryList(historyData);
+      }
+    } catch (e) {
+      console.error('Failed to load logs/history:', e);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      fetchLogsAndHistory();
+      const interval = setInterval(fetchLogsAndHistory, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
 
   const fetchProfile = async () => {
     try {
@@ -226,6 +360,24 @@ export default function App() {
           </div>
         </div>
 
+        {/* VIEW SELECTOR */}
+        <div style={{ padding: '0 16px 16px 16px', borderBottom: '2px solid var(--border)' }}>
+          <div className="segmented-control" style={{ marginTop: '16px' }}>
+            <div
+              className={`segment-item ${activeTab === 'forge' ? 'active' : ''}`}
+              onClick={() => setActiveTab('forge')}
+            >
+              Console
+            </div>
+            <div
+              className={`segment-item ${activeTab === 'logs' ? 'active' : ''}`}
+              onClick={() => setActiveTab('logs')}
+            >
+              Logs & Metrics
+            </div>
+          </div>
+        </div>
+
         {/* PROFILE SETTINGS */}
         <div className="section-title">
           <Settings size={14} /> Profile Settings
@@ -338,6 +490,40 @@ export default function App() {
             </div>
           </form>
         </div>
+
+        {/* MCP SERVERS STATUS */}
+        <div className="section-title" style={{ marginTop: 'auto', borderTop: '2px solid var(--border)' }}>
+          <Settings size={14} /> MCP CONNECTIONS
+        </div>
+        <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: 'var(--bg)' }}>
+          <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {mcpServers.length === 0 ? (
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No MCP servers configured.</p>
+            ) : (
+              mcpServers.map((srv) => (
+                <div key={srv.name} style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', padding: '6px 8px', backgroundColor: 'var(--bg-card)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className={`status-dot ${srv.status === 'connected' ? 'status-connected' : 'status-disconnected'}`} style={{
+                        width: '8px',
+                        height: '8px',
+                        backgroundColor: srv.status === 'connected' ? 'var(--accent)' : 'var(--error)',
+                        display: 'inline-block'
+                      }}></span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{srv.name.toUpperCase()}</span>
+                    </div>
+                    {srv.pid && (
+                      <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>PID: {srv.pid}</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px', fontFamily: 'var(--font-mono)' }} title={`${srv.command} ${srv.args.join(' ')}`}>
+                    {srv.command} {srv.args.join(' ')}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </aside>
 
       {/* MAIN WORKSPACE COLUMN */}
@@ -352,155 +538,258 @@ export default function App() {
           </div>
         </header>
 
-        <div className="workspace-panel">
-          {/* CONSOLE: Entry and Refined Output */}
-          <div className="console-column">
-            {/* Raw Input */}
-            <div className="brutalist-card">
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Raw Prompt Input</label>
-                <textarea
-                  className="text-area"
-                  placeholder="Enter a raw prompt to refine (e.g. 'build a dashboard to display sales records')"
-                  value={rawPrompt}
-                  onChange={(e) => setRawPrompt(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                <div style={{ width: '260px' }}>
-                  <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>Target Density</label>
-                  <div className="segmented-control">
-                    <div
-                      className={`segment-item ${density === 'short' ? 'active' : ''}`}
-                      onClick={() => {
-                        setDensity('short');
-                        updateProfile({ density_preference: 'short' });
-                      }}
-                    >
-                      Short (Rules)
-                    </div>
-                    <div
-                      className={`segment-item ${density === 'medium' ? 'active' : ''}`}
-                      onClick={() => {
-                        setDensity('medium');
-                        updateProfile({ density_preference: 'medium' });
-                      }}
-                    >
-                      Medium (RPG)
-                    </div>
-                    <div
-                      className={`segment-item ${density === 'detailed' ? 'active' : ''}`}
-                      onClick={() => {
-                        setDensity('detailed');
-                        updateProfile({ density_preference: 'detailed' });
-                      }}
-                    >
-                      Detailed
-                    </div>
-                  </div>
+        {activeTab === 'forge' ? (
+          <div className="workspace-panel">
+            {/* CONSOLE: Entry and Refined Output */}
+            <div className="console-column">
+              {/* Raw Input */}
+              <div className="brutalist-card">
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label className="form-label">Raw Prompt Input</label>
+                  <textarea
+                    className="text-area"
+                    placeholder="Enter a raw prompt to refine (e.g. 'build a dashboard to display sales records')"
+                    value={rawPrompt}
+                    onChange={(e) => setRawPrompt(e.target.value)}
+                  />
                 </div>
 
-                <button
-                  className={`btn btn-accent ${loading ? 'btn-disabled' : ''}`}
-                  disabled={loading}
-                  onClick={handleRefine}
-                  style={{ alignSelf: 'flex-end', height: '40px' }}
-                >
-                  {loading ? (
-                    <RefreshCw size={14} className="pulse" />
-                  ) : (
-                    <Sparkles size={14} />
-                  )}
-                  Forge Prompt
-                </button>
-              </div>
-            </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ width: '260px' }}>
+                    <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>Target Density</label>
+                    <div className="segmented-control">
+                      <div
+                        className={`segment-item ${density === 'short' ? 'active' : ''}`}
+                        onClick={() => {
+                          setDensity('short');
+                          updateProfile({ density_preference: 'short' });
+                        }}
+                      >
+                        Short (Rules)
+                      </div>
+                      <div
+                        className={`segment-item ${density === 'medium' ? 'active' : ''}`}
+                        onClick={() => {
+                          setDensity('medium');
+                          updateProfile({ density_preference: 'medium' });
+                        }}
+                      >
+                        Medium (RPG)
+                      </div>
+                      <div
+                        className={`segment-item ${density === 'detailed' ? 'active' : ''}`}
+                        onClick={() => {
+                          setDensity('detailed');
+                          updateProfile({ density_preference: 'detailed' });
+                        }}
+                      >
+                        Detailed
+                      </div>
+                    </div>
+                  </div>
 
-            {/* Refined Output */}
-            {refinedPrompt && (
-              <div className="brutalist-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
-                  <h3 className="logo-text" style={{ fontSize: '1rem', color: 'var(--accent)' }}>FORGED HIGH-FIDELITY INSTRUCTION</h3>
-                  <button className="btn" onClick={copyToClipboard} style={{ padding: '6px 12px' }}>
-                    {copied ? <Check size={14} style={{ color: 'var(--accent)' }} /> : <Copy size={14} />}
-                    {copied ? 'Copied' : 'Copy'}
+                  <button
+                    className={`btn btn-accent ${loading ? 'btn-disabled' : ''}`}
+                    disabled={loading}
+                    onClick={handleRefine}
+                    style={{ alignSelf: 'flex-end', height: '40px' }}
+                  >
+                    {loading ? (
+                      <RefreshCw size={14} className="pulse" />
+                    ) : (
+                      <Sparkles size={14} />
+                    )}
+                    Forge Prompt
                   </button>
                 </div>
-                <pre className="mono-output" style={{ flex: 1, minHeight: '260px' }}>
-                  {refinedPrompt}
-                </pre>
               </div>
-            )}
-          </div>
 
-          {/* CHAT PANEL: Conversational refinement follow-up */}
-          <div className="panel-column">
-            <div className="section-title">
-              <MessageSquare size={14} /> Follow-Up Refinement
-            </div>
-            
-            <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {chatHistory.length === 0 ? (
-                <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '200px' }}>
-                    Generate a refined prompt first to start follow-up conversation.
-                  </p>
-                </div>
-              ) : (
-                chatHistory.map((chat) => (
-                  <div
-                    key={chat.id}
-                    style={{
-                      alignSelf: chat.role === 'user' ? 'flex-end' : 'flex-start',
-                      maxWidth: '85%',
-                      background: chat.role === 'user' ? 'var(--border)' : 'var(--bg-input)',
-                      border: '1px solid var(--border)',
-                      padding: '12px',
-                      fontSize: '0.8rem',
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '0.7rem', color: chat.role === 'user' ? 'var(--accent)' : 'var(--text-muted)' }}>
-                      {chat.role === 'user' ? 'DEVELOPER' : 'KIRA ARCHITECT'}
-                    </div>
-                    <p style={{ whiteSpace: 'pre-wrap' }}>{chat.message}</p>
+              {/* Refined Output */}
+              {refinedPrompt && (
+                <div className="brutalist-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
+                    <h3 className="logo-text" style={{ fontSize: '1rem', color: 'var(--accent)' }}>FORGED HIGH-FIDELITY INSTRUCTION</h3>
+                    <button className="btn" onClick={copyToClipboard} style={{ padding: '6px 12px' }}>
+                      {copied ? <Check size={14} style={{ color: 'var(--accent)' }} /> : <Copy size={14} />}
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
                   </div>
-                ))
+                  <pre className="mono-output" style={{ flex: 1, minHeight: '260px' }}>
+                    {refinedPrompt}
+                  </pre>
+                </div>
               )}
             </div>
 
-            {/* Chat inputs */}
-            <div style={{ padding: '16px', borderTop: '2px solid var(--border)', backgroundColor: 'var(--bg-input)' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  placeholder="e.g. 'make it shorter', 'add db logging'"
-                  disabled={chatHistory.length === 0 || chatLoading}
-                  value={chatMessage}
-                  onChange={(e) => setChatMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                  style={{
-                    flex: 1,
-                    background: 'var(--bg)',
-                    color: 'var(--text)',
-                    border: '2px solid var(--border)',
-                    padding: '10px',
-                    fontSize: '0.8rem',
-                    outline: 'none',
-                  }}
-                />
-                <button
-                  onClick={handleSendChat}
-                  disabled={chatHistory.length === 0 || chatLoading}
-                  className={`btn btn-accent ${chatHistory.length === 0 || chatLoading ? 'btn-disabled' : ''}`}
-                  style={{ padding: '10px' }}
-                >
-                  <Send size={14} />
-                </button>
+            {/* CHAT PANEL: Conversational refinement follow-up */}
+            <div className="panel-column">
+              <div className="section-title">
+                <MessageSquare size={14} /> Follow-Up Refinement
+              </div>
+              
+              <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {chatHistory.length === 0 ? (
+                  <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '200px' }}>
+                      Generate a refined prompt first to start follow-up conversation.
+                    </p>
+                  </div>
+                ) : (
+                  chatHistory.map((chat) => (
+                    <div
+                      key={chat.id}
+                      style={{
+                        alignSelf: chat.role === 'user' ? 'flex-end' : 'flex-start',
+                        maxWidth: '85%',
+                        background: chat.role === 'user' ? 'var(--border)' : 'var(--bg-input)',
+                        border: '1px solid var(--border)',
+                        padding: '12px',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '0.7rem', color: chat.role === 'user' ? 'var(--accent)' : 'var(--text-muted)' }}>
+                        {chat.role === 'user' ? 'DEVELOPER' : 'KIRA ARCHITECT'}
+                      </div>
+                      <p style={{ whiteSpace: 'pre-wrap' }}>{chat.message}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Chat inputs */}
+              <div style={{ padding: '16px', borderTop: '2px solid var(--border)', backgroundColor: 'var(--bg-input)' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="e.g. 'make it shorter', 'add db logging'"
+                    disabled={chatHistory.length === 0 || chatLoading}
+                    value={chatMessage}
+                    onChange={(e) => setChatMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                    style={{
+                      flex: 1,
+                      background: 'var(--bg)',
+                      color: 'var(--text)',
+                      border: '2px solid var(--border)',
+                      padding: '10px',
+                      fontSize: '0.8rem',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    onClick={handleSendChat}
+                    disabled={chatHistory.length === 0 || chatLoading}
+                    className={`btn btn-accent ${chatHistory.length === 0 || chatLoading ? 'btn-disabled' : ''}`}
+                    style={{ padding: '10px' }}
+                  >
+                    <Send size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="metric-row">
+              <div className="metric-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  <Activity size={14} style={{ color: 'var(--accent)' }} /> ACTIVE MCP SERVERS
+                </div>
+                <div className="metric-card-val">
+                  {mcpServers.filter(s => s.status === 'connected').length} / {mcpServers.length}
+                </div>
+              </div>
+              <div className="metric-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  <Clock size={14} style={{ color: 'var(--accent)' }} /> TOTAL REFINE CALLS
+                </div>
+                <div className="metric-card-val">
+                  {historyList.length}
+                </div>
+              </div>
+              <div className="metric-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  <Terminal size={14} style={{ color: 'var(--accent)' }} /> TOTAL MCP ACTIONS
+                </div>
+                <div className="metric-card-val">
+                  {mcpLogs.length}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              {/* Left Column: Prompt History (Before vs After) */}
+              <div className="brutalist-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                <h3 className="section-title" style={{ padding: '0 0 12px 0', borderBottom: '2px solid var(--border)', marginBottom: '16px' }}>
+                  <Clock size={14} /> PROMPT IMPROVEMENT HISTORY
+                </h3>
+                <div style={{ overflowY: 'auto', maxHeight: '450px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {historyList.length === 0 ? (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No refinement history logs found.</p>
+                  ) : (
+                    historyList.map((item) => (
+                      <div key={item.id} style={{ border: '2px solid var(--border)', padding: '12px', backgroundColor: 'var(--bg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                          <span>SESSION: {item.session_id}</span>
+                          <span>{item.created_at}</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div>
+                            <div className="form-label" style={{ fontSize: '0.65rem', marginBottom: '4px' }}>Original Prompt</div>
+                            <div style={{ fontSize: '0.75rem', padding: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--bg-input)', whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
+                              {item.message}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="form-label" style={{ fontSize: '0.65rem', marginBottom: '4px', color: 'var(--accent)' }}>Refined Output</div>
+                            <div style={{ fontSize: '0.75rem', padding: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--bg-input)', whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
+                              {item.refined_prompt}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: MCP Logs (Trace Logs & Metrics) */}
+              <div className="brutalist-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                <h3 className="section-title" style={{ padding: '0 0 12px 0', borderBottom: '2px solid var(--border)', marginBottom: '16px' }}>
+                  <Terminal size={14} /> MCP TRACE LOGS & METRICS
+                </h3>
+                <div style={{ overflowY: 'auto', maxHeight: '450px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {mcpLogs.length === 0 ? (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No MCP trace logs found.</p>
+                  ) : (
+                    mcpLogs.map((log) => (
+                      <div key={log.id} style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', padding: '10px', backgroundColor: 'var(--bg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
+                            {log.tool_name}
+                          </span>
+                          <span className={`badge ${log.status === 'success' ? 'badge-success' : 'badge-error'}`}>
+                            {log.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                          <span>CALLER: {log.agent_name}</span>
+                          <span>LATENCY: {log.duration_ms.toFixed(1)} ms</span>
+                        </div>
+                        <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', borderTop: '1px dashed var(--border)', paddingTop: '6px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowY: 'auto', maxHeight: '80px' }}>
+                          ARGS: {log.arguments}
+                        </div>
+                        <div style={{ alignSelf: 'flex-end', fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          {log.created_at}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

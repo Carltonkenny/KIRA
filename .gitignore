@@ -9,6 +9,7 @@ venv/
 .env.*.local
 .pytest_cache/
 .vscode/
+*.db
 
 # Node
 node_modules/
