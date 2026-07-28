@@ -136,6 +136,52 @@ Add the following to your IDE's global MCP settings file (typically `mcp_config.
 
 ---
 
+### Tutorial 2.5: Configuring KIRA MCP in Cline (VS Code Extension & CLI)
+
+Cline (formerly Claude Dev) uses a dedicated configuration file for its MCP servers. 
+
+#### 1. Locate the configuration file on your machine:
+Depending on your IDE platform or Cline build, open the corresponding JSON configuration file:
+- **Cline (Standard VS Code)**:
+  `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
+- **Cline (Antigravity IDE)**:
+  `%APPDATA%\Antigravity IDE\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
+- **Roo-Cline (Trae)**:
+  `%APPDATA%\Trae\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
+
+#### 2. Insert the KIRA Server Entry:
+Add KIRA to the `mcpServers` object in the JSON file. Ensure you target the absolute path to KIRA's virtual environment python executable to avoid package dependency conflicts:
+
+```json
+{
+  "mcpServers": {
+    "kira-partner": {
+      "command": "c:/Users/user/OneDrive/Desktop/KIRA/backend/.venv/Scripts/python.exe",
+      "args": [
+        "c:/Users/user/OneDrive/Desktop/KIRA/backend/mcp_server.py"
+      ],
+      "env": {
+        "DEEPSEEK_API_KEY": "your-api-key-here",
+        "DATABASE_MODE": "local"
+      }
+    }
+  }
+}
+```
+
+#### 3. How to Use KIRA inside Cline:
+1. **Tool Discovery**: Once the configuration file is saved, Cline automatically restarts its MCP client. You will see `kira-partner` active in Cline's MCP tool status bar, exposing KIRA's core capabilities:
+   - `kira_enhance` (Decides whether to enhance prompt based on classifier, adding SQLite memories).
+   - `forge_refine` (Refines vague user prompts).
+   - `forge_chat` (Performs conversational iterative follow-ups).
+   - `get_kira_memories` (Lists all KIRA-stored constraints).
+2. **Explicit Invocation**: Prompt Cline in the chat window:
+   > *"Use the KIRA tool forge_refine to structure my prompt: 'build a stripe webhook handler'"*
+3. **Conversational Iterations**: You can ask Cline to chain KIRA calls:
+   > *"Run forge_chat to update our stripe prompt: 'add db logging'"*
+
+---
+
 ### Tutorial 3: Building a Custom Agent that calls `kira_enhance`
 
 If you are developing a custom agent or coding script in Python, you can fetch KIRA's context-refined prompts programmatically:
