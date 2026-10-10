@@ -9,20 +9,23 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Memories: Distilled semantic facts learned over time
+-- 2. Memories: Distilled semantic facts learned over time (scoped by user and project)
 CREATE TABLE IF NOT EXISTS user_memories (
     id VARCHAR(255) PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
-    category VARCHAR(100) NOT NULL, -- e.g., 'tech_stack', 'writing_style', 'constraints'
-    fact TEXT NOT NULL,             -- e.g., 'Uses Next.js 14', 'Prefers async/await'
+    project_id VARCHAR(255) DEFAULT 'default', -- e.g., 'kira', 'ecommerce-api', 'global'
+    category VARCHAR(100) NOT NULL,            -- e.g., 'tech_stack', 'writing_style', 'constraints'
+    fact TEXT NOT NULL,                        -- e.g., 'Uses Next.js 14', 'Prefers async/await'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_memories_user ON user_memories(user_id);
+CREATE INDEX IF NOT EXISTS idx_memories_project ON user_memories(user_id, project_id);
 
 -- 3. Chat History: Conversation logs for stateful prompt refinement
 CREATE TABLE IF NOT EXISTS chat_history (
     id VARCHAR(255) PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
+    project_id VARCHAR(255) DEFAULT 'default',
     session_id VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL,      -- 'user' or 'assistant'
     message TEXT NOT NULL,          -- Raw user prompt or LLM description
@@ -31,6 +34,7 @@ CREATE TABLE IF NOT EXISTS chat_history (
 );
 CREATE INDEX IF NOT EXISTS idx_history_session ON chat_history(session_id);
 CREATE INDEX IF NOT EXISTS idx_history_user ON chat_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_history_project ON chat_history(project_id);
 
 -- 4. MCP Logs: Execution metrics and trace logs for MCP tool calls
 CREATE TABLE IF NOT EXISTS mcp_logs (

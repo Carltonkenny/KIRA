@@ -56,5 +56,22 @@ async def test_add_memory(mock_db_manager):
     assert "INSERT INTO user_memories" in args[0]
     assert args[1][0] == memory_id
     assert args[1][1] == "test_user"
-    assert args[1][2] == "tech_stack"
-    assert args[1][3] == "Uses Pytest"
+    assert args[1][2] == "default"
+    assert args[1][3] == "tech_stack"
+    assert args[1][4] == "Uses Pytest"
+
+
+@pytest.mark.asyncio
+async def test_project_memory_scoping(mock_db_manager):
+    # Tests that query for project-scoped memories correctly filters by project_id
+    mock_db_manager._execute_sqlite.return_value = [
+        {"id": "mem-1", "project_id": "react-app", "category": "tech_stack", "fact": "Uses React 19"},
+        {"id": "mem-2", "project_id": "global", "category": "preference", "fact": "Direct tone"}
+    ]
+
+    mems = await mock_db_manager.get_memories("test_user", project_id="react-app")
+    assert len(mems) == 2
+    mock_db_manager._execute_sqlite.assert_called_once()
+    args = mock_db_manager._execute_sqlite.call_args[0]
+    assert "project_id = ?" in args[0]
+    assert args[1] == ("test_user", "react-app")

@@ -17,7 +17,13 @@ mcp = FastMCP("Kira-IDE-Partner")
 
 @mcp.tool()
 @traced_tool("forge_refine", agent_field="agent_name")
-async def forge_refine(prompt: str, session_id: str, density: str = "short", agent_name: str = "frontend") -> str:
+async def forge_refine(
+    prompt: str,
+    session_id: str,
+    density: str = "short",
+    agent_name: str = "frontend",
+    project_id: str = "default"
+) -> str:
     """
     Refines a raw, vague developer prompt into a high-fidelity instruction set.
 
@@ -26,24 +32,26 @@ async def forge_refine(prompt: str, session_id: str, density: str = "short", age
         session_id: A unique identifier for the current coding/chat session.
         density: Target prompt density: 'short', 'medium', or 'detailed'.
         agent_name: The calling agent identifier for trace logging.
+        project_id: Project identifier to isolate tech stacks and constraints.
     """
     user_id = LOCAL_USER_ID
 
     profile = await db.get_profile(user_id)
-    memories = await db.get_memories(user_id)
+    memories = await db.get_memories(user_id, project_id=project_id)
 
     result = refine_prompt(prompt, profile, memories, density=density)
 
     for fact in result.new_memories:
-        await db.add_memory(user_id, category=CATEGORY_AUTO, fact=fact)
-        logger.info(f"KIRA learned memory: {fact}")
+        await db.add_memory(user_id, category=CATEGORY_AUTO, fact=fact, project_id=project_id)
+        logger.info(f"KIRA learned memory for [{project_id}]: {fact}")
 
     await db.save_history(
         user_id=user_id,
         session_id=session_id,
         role="user",
         message=prompt,
-        refined_prompt=result.refined_prompt
+        refined_prompt=result.refined_prompt,
+        project_id=project_id
     )
 
     return result.refined_prompt
@@ -55,18 +63,20 @@ async def kira_enhance(
     prompt: str,
     agent_name: str = "",
     session_id: str = "",
-    density: str = "short"
+    density: str = "short",
+    project_id: str = "default"
 ) -> str:
     """
     KIRA's smart prompt enhancement tool.
     Intercepts prompt, decides whether to enhance or pass through based on classifier rules.
-    If enhancing, uses Mem0/SQLite memories to optimize prompt via DeepSeek.
+    If enhancing, uses Mem0/SQLite memories scoped to project_id to optimize prompt.
 
     Args:
         prompt: The raw developer prompt.
         agent_name: The calling agent (e.g. 'opencode', 'antigravity'). For per-agent memory scoping.
         session_id: A unique identifier for the current session to link history.
         density: Target density budget ('short', 'medium', or 'detailed').
+        project_id: Target project scope to prevent memory leakage across repositories.
     """
     user_id = LOCAL_USER_ID
 
@@ -76,8 +86,8 @@ async def kira_enhance(
         logger.info(f"Pass-through prompt. Reason: {classification['reason']}")
         return prompt
 
-    # 2. Recall context from Mem0/local fallback
-    memories = await memory.recall(prompt, user_id=user_id, agent_name=agent_name)
+    # 2. Recall context from Mem0/local fallback scoped to this project
+    memories = await memory.recall(prompt, user_id=user_id, agent_name=agent_name, project_id=project_id)
 
     # 3. Fetch profile
     profile = await db.get_profile(user_id)
@@ -85,10 +95,10 @@ async def kira_enhance(
     # 4. Call refiner (LLM structured call)
     result = refine_prompt(prompt, profile, memories, density=density)
 
-    # 5. Save newly learned memories
+    # 5. Save newly learned memories scoped to project
     for fact in result.new_memories:
-        await memory.remember(fact, user_id=user_id, agent_name=agent_name)
-        logger.info(f"KIRA learned memory: {fact}")
+        await memory.remember(fact, user_id=user_id, agent_name=agent_name, project_id=project_id)
+        logger.info(f"KIRA learned memory for [{project_id}]: {fact}")
 
     # 6. Save to chat history
     active_session_id = session_id if session_id else f"session-{agent_name if agent_name else 'generic'}"
@@ -97,7 +107,8 @@ async def kira_enhance(
         session_id=active_session_id,
         role="user",
         message=prompt,
-        refined_prompt=result.refined_prompt
+        refined_prompt=result.refined_prompt,
+        project_id=project_id
     )
 
     return result.refined_prompt
@@ -191,18 +202,20 @@ Produce a JSON response:
 
 @mcp.tool()
 @traced_tool("get_kira_memories", agent_field="agent_name")
-async def get_kira_memories(agent_name: str = "") -> str:
+async def get_kira_memories(agent_name: str = "", project_id: str = "") -> str:
     """
     Returns all auto-learned and manual facts saved in KIRA's memory.
 
     Args:
         agent_name: Optional agent name to filter memories.
+        project_id: Optional project ID to filter memories by project scope.
     """
     user_id = LOCAL_USER_ID
 
-    memories = await memory.get_all_memories(user_id=user_id, agent_name=agent_name)
+    memories = await memory.get_all_memories(user_id=user_id, agent_name=agent_name, project_id=project_id or None)
     if not memories:
-        return "KIRA has not recorded any memories yet."
+        scope = f" (Project: {project_id})" if project_id else ""
+        return f"KIRA has not recorded any memories yet{scope}."
 
     result = f"### KIRA Current Memories (Agent: {agent_name or 'All'})\n"
     for m in memories:

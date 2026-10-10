@@ -1,97 +1,97 @@
-"""KIRA Memory Manager — Mem0 cloud integration with local database fallbacks."""
+"""KIRA Memory Manager — Mem0 Cloud API integration with local SQLite project-scoped fallbacks."""
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+import httpx
 from config import MEM0_API_KEY
+from database import db, LOCAL_USER_ID, CATEGORY_AUTO
 
 logger = logging.getLogger("kira.memory")
 
-_client = None
+MEM0_API_BASE = "https://api.mem0.ai/v1"
 
 
-def get_mem0_client():
-    global _client
-    if _client is not None:
-        return _client
-
+def _get_headers() -> Optional[Dict[str, str]]:
     if not MEM0_API_KEY or MEM0_API_KEY.strip() == "" or "your-api-key" in MEM0_API_KEY:
         return None
-
-    try:
-        from mem0 import MemoryClient
-        _client = MemoryClient(api_key=MEM0_API_KEY)
-        return _client
-    except Exception as e:
-        logger.warning(f"Failed to initialize Mem0Client: {e}")
-        return None
+    return {
+        "Authorization": f"Token {MEM0_API_KEY.strip()}",
+        "Content-Type": "application/json"
+    }
 
 
-def _try_mem0(method_name: str, *args, **kwargs):
-    """Executes a Mem0 client method, catching any exceptions and returning the result or None."""
-    client = get_mem0_client()
-    if client:
+async def remember(
+    fact: str,
+    user_id: str = "local_user",
+    agent_name: str = "",
+    project_id: str = "default"
+) -> None:
+    """Saves a fact to Mem0 cloud, always writing to local SQLite for instant retrieval and project scoping."""
+    # 1. Always save to local SQLite for guaranteed local performance and project scoping
+    await db.add_memory(user_id or LOCAL_USER_ID, category=CATEGORY_AUTO, fact=fact, project_id=project_id)
+
+    # 2. Asynchronously sync to Mem0 Cloud if configured
+    headers = _get_headers()
+    if headers:
         try:
-            method = getattr(client, method_name)
-            return method(*args, **kwargs)
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                payload = {
+                    "messages": [{"role": "user", "content": fact}],
+                    "user_id": user_id,
+                    "metadata": {
+                        "category": "auto_learned",
+                        "agent_name": agent_name,
+                        "project_id": project_id
+                    }
+                }
+                res = await client.post(f"{MEM0_API_BASE}/memories/", json=payload, headers=headers)
+                if res.status_code in (200, 201):
+                    logger.debug(f"Synced fact to Mem0 cloud for project {project_id}")
         except Exception as e:
-            logger.warning(f"Mem0 client.{method_name} failed: {e}. Falling back to local DB.")
-    return None
+            logger.debug(f"Mem0 cloud sync skipped/failed: {e}")
 
 
-async def remember(fact: str, user_id: str = "local_user", agent_name: str = "") -> None:
-    """Saves a fact to Mem0 cloud, falling back to local database if unavailable or unconfigured."""
-    metadata = {"category": "auto_learned"}
-    result = _try_mem0(
-        "add",
-        fact,
-        user_id=user_id,
-        agent_id=agent_name if agent_name else None,
-        metadata=metadata
-    )
-    if result is not None:
-        return
+async def recall(
+    query: str,
+    user_id: str = "local_user",
+    agent_name: str = "",
+    project_id: str = "default"
+) -> List[Dict[str, Any]]:
+    """Retrieves project-scoped and global memories from Mem0 cloud or local SQLite fallback."""
+    headers = _get_headers()
+    if headers:
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                payload = {
+                    "query": query,
+                    "user_id": user_id,
+                    "filters": {"project_id": project_id} if project_id and project_id != "default" else None
+                }
+                res = await client.post(f"{MEM0_API_BASE}/memories/search/", json=payload, headers=headers)
+                if res.status_code == 200:
+                    results = res.json()
+                    mem_list = results if isinstance(results, list) else results.get("results", [])
+                    if mem_list:
+                        return [
+                            {
+                                "fact": m.get("memory", ""),
+                                "category": "auto_learned",
+                                "project_id": project_id,
+                                "score": m.get("score", 1.0)
+                            }
+                            for m in mem_list
+                        ]
+        except Exception as e:
+            logger.debug(f"Mem0 search fallback to SQLite: {e}")
 
-    # Fallback to SQLite DB
-    from database import db, LOCAL_USER_ID, CATEGORY_AUTO
-    await db.add_memory(user_id or LOCAL_USER_ID, category=CATEGORY_AUTO, fact=fact)
+    # Primary reliable fallback: Local SQLite scoped by project
+    return await db.get_memories(user_id or LOCAL_USER_ID, project_id=project_id)
 
 
-async def recall(query: str, user_id: str = "local_user", agent_name: str = "") -> List[Dict[str, Any]]:
-    """Retrieves relevant memories from Mem0 cloud, falling back to local database."""
-    filters = {"user_id": user_id}
-    response = _try_mem0("search", query, filters=filters)
-    if response is not None:
-        results = response.get("results", [])
-        normalized = []
-        for res in results:
-            normalized.append({
-                "fact": res.get("memory", ""),
-                "category": "auto_learned",
-                "score": res.get("score", 1.0)
-            })
-        return normalized
-
-    # Fallback to SQLite DB
-    from database import db, LOCAL_USER_ID
-    return await db.get_memories(user_id or LOCAL_USER_ID)
-
-
-async def get_all_memories(user_id: str = "local_user", agent_name: str = "") -> List[Dict[str, Any]]:
-    """Retrieves all memories from Mem0 cloud, falling back to local database."""
-    filters = {"user_id": user_id}
-    response = _try_mem0("get_all", filters=filters)
-    if response is not None:
-        results = response.get("results", [])
-        normalized = []
-        for res in results:
-            normalized.append({
-                "id": res.get("id", ""),
-                "fact": res.get("memory", ""),
-                "category": "auto_learned",
-                "created_at": res.get("created_at", "")
-            })
-        return normalized
-
-    # Fallback to SQLite DB
-    from database import db, LOCAL_USER_ID
-    return await db.get_memories(user_id or LOCAL_USER_ID)
+async def get_all_memories(
+    user_id: str = "local_user",
+    agent_name: str = "",
+    project_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Retrieves all memories scoped by project."""
+    return await db.get_memories(user_id or LOCAL_USER_ID, project_id=project_id)

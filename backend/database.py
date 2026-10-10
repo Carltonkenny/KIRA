@@ -74,6 +74,23 @@ class DatabaseManager:
         with open(schema_path, "r", encoding="utf-8") as f:
             schema_sql = f.read()
 
+        # Robust migration: inspect table columns and add project_id if missing before creating indexes
+        conn = sqlite3.connect(SQLITE_DB_PATH)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(user_memories)")
+            mem_cols = [row[1] for row in cursor.fetchall()]
+            if mem_cols and "project_id" not in mem_cols:
+                cursor.execute("ALTER TABLE user_memories ADD COLUMN project_id VARCHAR(255) DEFAULT 'default'")
+
+            cursor.execute("PRAGMA table_info(chat_history)")
+            hist_cols = [row[1] for row in cursor.fetchall()]
+            if hist_cols and "project_id" not in hist_cols:
+                cursor.execute("ALTER TABLE chat_history ADD COLUMN project_id VARCHAR(255) DEFAULT 'default'")
+            conn.commit()
+        finally:
+            conn.close()
+
         self._execute_sqlite(schema_sql)
         logger.info("SQLite database tables verified/created successfully.")
 
@@ -103,18 +120,25 @@ class DatabaseManager:
 
     # --- Memory Operations ---
 
-    async def get_memories(self, user_id: str) -> List[Dict[str, Any]]:
-        """Returns all memories for the user."""
+    async def get_memories(self, user_id: str, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Returns memories for the user. If project_id is given, returns project-specific + global memories."""
         await self.initialize_pool()
-        query = "SELECT id, category, fact, created_at FROM user_memories WHERE user_id = $1 ORDER BY created_at DESC"
-        return self._execute_sqlite(query, (user_id,))
+        if project_id and project_id != "all":
+            query = """SELECT id, project_id, category, fact, created_at 
+                       FROM user_memories 
+                       WHERE user_id = ? AND (project_id = ? OR project_id = 'default' OR project_id = 'global')
+                       ORDER BY created_at DESC"""
+            return self._execute_sqlite(query, (user_id, project_id))
+        else:
+            query = "SELECT id, project_id, category, fact, created_at FROM user_memories WHERE user_id = ? ORDER BY created_at DESC"
+            return self._execute_sqlite(query, (user_id,))
 
-    async def add_memory(self, user_id: str, category: str, fact: str) -> str:
-        """Adds a new fact to user memories."""
+    async def add_memory(self, user_id: str, category: str, fact: str, project_id: str = "default") -> str:
+        """Adds a new fact to user memories with project scope."""
         await self.initialize_pool()
         memory_id = f"mem-{uuid.uuid4().hex[:12]}"
-        query = "INSERT INTO user_memories (id, user_id, category, fact, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)"
-        self._execute_sqlite(query, (memory_id, user_id, category, fact))
+        query = "INSERT INTO user_memories (id, user_id, project_id, category, fact, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
+        self._execute_sqlite(query, (memory_id, user_id, project_id, category, fact))
         return memory_id
 
     async def delete_memory(self, user_id: str, memory_id: str) -> bool:
@@ -135,14 +159,14 @@ class DatabaseManager:
         return self._execute_sqlite(query, (session_id, limit))
 
     async def save_history(
-        self, user_id: str, session_id: str, role: str, message: str, refined_prompt: Optional[str] = None
+        self, user_id: str, session_id: str, role: str, message: str, refined_prompt: Optional[str] = None, project_id: str = "default"
     ) -> str:
-        """Appends a new turn to the chat logs."""
+        """Appends a new turn to the chat logs with project scope."""
         await self.initialize_pool()
         history_id = f"hist-{uuid.uuid4().hex[:12]}"
-        query = """INSERT INTO chat_history (id, user_id, session_id, role, message, refined_prompt, created_at)
-                   VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)"""
-        self._execute_sqlite(query, (history_id, user_id, session_id, role, message, refined_prompt))
+        query = """INSERT INTO chat_history (id, user_id, project_id, session_id, role, message, refined_prompt, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"""
+        self._execute_sqlite(query, (history_id, user_id, project_id, session_id, role, message, refined_prompt))
         return history_id
 
     async def get_all_history(self, limit: int = 20) -> List[Dict[str, Any]]:

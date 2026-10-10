@@ -13,10 +13,11 @@ router = APIRouter(prefix="/api/v1", tags=["refine"])
 async def api_refine(request: RefineRequest) -> dict:
     """Refines a raw prompt utilizing stored user preferences and context."""
     user_id = LOCAL_USER_ID
+    project_id = request.project_id or "default"
 
-    # 1. Fetch user profile & memory list
+    # 1. Fetch user profile & memory list (scoped to project)
     profile = await db.get_profile(user_id)
-    memories = await db.get_memories(user_id)
+    memories = await db.get_memories(user_id, project_id=project_id)
 
     # 2. Run prompt refinery in thread pool — LLM call is synchronous I/O,
     #    offloading prevents blocking FastAPI's event loop during inference.
@@ -27,7 +28,7 @@ async def api_refine(request: RefineRequest) -> dict:
 
     # 3. Save auto-extracted memories
     for fact in result.new_memories:
-        await db.add_memory(user_id, category=CATEGORY_AUTO, fact=fact)
+        await db.add_memory(user_id, category=CATEGORY_AUTO, fact=fact, project_id=project_id)
 
     # 4. Save history
     await db.save_history(
@@ -35,7 +36,8 @@ async def api_refine(request: RefineRequest) -> dict:
         session_id=request.session_id,
         role="user",
         message=request.prompt,
-        refined_prompt=result.refined_prompt
+        refined_prompt=result.refined_prompt,
+        project_id=project_id
     )
 
     return {

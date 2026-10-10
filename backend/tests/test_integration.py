@@ -44,9 +44,9 @@ async def test_kira_enhance_refine(
     
     # Assertions
     assert res == "Enhanced: build a server in python"
-    mock_recall.assert_called_once_with("build a server in python", user_id="local_user", agent_name="antigravity")
+    mock_recall.assert_called_once_with("build a server in python", user_id="local_user", agent_name="antigravity", project_id="default")
     mock_refine_prompt.assert_called_once()
-    mock_remember.assert_called_once_with("Uses FastAPI", user_id="local_user", agent_name="antigravity")
+    mock_remember.assert_called_once_with("Uses FastAPI", user_id="local_user", agent_name="antigravity", project_id="default")
     mock_save_history.assert_called_once()
 
 @pytest.mark.asyncio
