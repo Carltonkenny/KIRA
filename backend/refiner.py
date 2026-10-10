@@ -1,7 +1,12 @@
-import json
+"""KIRA Prompt Refiner — Prompt expansion and structured parsing."""
+
+import logging
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
-from config import get_llm_client, get_model_name
+from typing import List, Dict, Any
+from config import get_llm_client, get_model_name, parse_llm_json
+
+logger = logging.getLogger("kira.refiner")
+
 
 class RefinerResponse(BaseModel):
     refined_prompt: str = Field(description="The final expanded, high-fidelity engineered prompt.")
@@ -10,6 +15,7 @@ class RefinerResponse(BaseModel):
     new_memories: List[str] = Field(description="Any user facts, technologies, or preferences learned during this interaction to save.")
     quality_scores: Dict[str, float] = Field(description="Score from 1.0 to 5.0 for: specificity, clarity, actionability.")
 
+
 def build_system_instructions(profile: Dict[str, Any], memories: List[Dict[str, Any]], density: str) -> str:
     """Builds the prompt-architect instructions containing the user preferences and facts."""
     
@@ -17,14 +23,12 @@ def build_system_instructions(profile: Dict[str, Any], memories: List[Dict[str, 
     tone = profile.get("preferred_tone", "direct")
     
     # 2. Extract facts from memories
-    memories_str = ""
     if memories:
         memories_str = "\n".join([f"- {m.get('fact')}" for m in memories])
     else:
         memories_str = "- No memories recorded yet."
 
     # 3. Density budget instructions
-    density_instructions = ""
     if density == "short":
         density_instructions = (
             "DENSITY BUDGET: 'short'. Output only raw Markdown instructions, bulleted rules, "
@@ -75,6 +79,7 @@ Your output MUST be a valid JSON object matching this schema:
 """
     return system_prompt
 
+
 def refine_prompt(
     raw_prompt: str, profile: Dict[str, Any], memories: List[Dict[str, Any]], density: str = "short"
 ) -> RefinerResponse:
@@ -83,25 +88,6 @@ def refine_prompt(
     model = get_model_name()
     system_prompt = build_system_instructions(profile, memories, density)
 
-    try:
-        # Standard OpenAI / DeepSeek structured completion format
-        # Try utilizing client.beta.chat.completions.parse which handles Pydantic natively
-        # Fall back to manual parsing if client is not configured for beta or fails
-        if (model == "deepseek-chat") or ("openai" in model):
-            response = client.beta.chat.completions.parse(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Refine this raw prompt: '{raw_prompt}'"}
-                ],
-                response_format=RefinerResponse,
-                temperature=0.2
-            )
-            return response.choices[0].message.parsed
-    except Exception as e:
-        print(f"KIRA WARNING: Beta structured output failed. Falling back to manual JSON completion. Error: {e}", file=sys.stderr)
-
-    # Fallback: request JSON format and parse manually
     try:
         response = client.chat.completions.create(
             model=model,
@@ -112,18 +98,11 @@ def refine_prompt(
             temperature=0.2
         )
         content = response.choices[0].message.content.strip()
-        
-        # Strip markdown fences if LLM wrapped it anyway
-        if content.startswith("```"):
-            lines = content.split("\n")
-            if lines[0].startswith("```json") or lines[0].startswith("```"):
-                content = "\n".join(lines[1:-1])
-        
-        data = json.loads(content)
+        data = parse_llm_json(content)
         return RefinerResponse(**data)
         
     except Exception as err:
-        print(f"KIRA ERROR: LLM chat generation failed entirely. Returning mock response. Error: {err}", file=sys.stderr)
+        logger.error(f"LLM chat generation failed: {err}")
         # Return graceful mock response so the system doesn't crash
         return RefinerResponse(
             refined_prompt=f"### Refined Prompt\n{raw_prompt}\n\n*Note: LLM generation encountered a runtime issue. Please verify API configuration.*",

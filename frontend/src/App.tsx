@@ -40,7 +40,7 @@ export default function App() {
         <header className="top-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Database size={16} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)' }}>POSTGRESQL ACTIVE</span>
+            <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)' }}>SQLITE LOCAL ACTIVE</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             Session ID: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{session_id}</span>

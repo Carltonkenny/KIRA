@@ -1,9 +1,9 @@
 # Architectural Decision Log (ADR): KIRA
 
-## ADR 1: Unified PostgreSQL Adapter (Asyncpg)
-* **Context:** The system needs database persistence for user preferences, chat logs, and learned facts. It must run locally on PostgreSQL for development and migrate seamlessly to a managed database (Supabase/Neon) for production.
-* **Decision:** We use standard SQL queries over `asyncpg` in Python. We avoid heavy ORMs (like SQLAlchemy or Prisma on the backend) to minimize dependencies, setup complexity, and database connection overhead.
-* **Consequence:** Easy setup. The user supplies a local `POSTGRES_URL` connection string for development, and simply updates the env variable to a cloud link to migrate.
+## ADR 1: Embedded SQLite Persistence with Mem0 Semantic Layer
+* **Context:** Developers want zero-setup local execution without running Docker, PostgreSQL services, or managing local DB servers. 
+* **Decision:** Use an embedded, zero-config SQLite database (`kira_local.db`) for all local relational persistence (profiles, chat history, manual facts, and MCP trace logs). For cross-agent semantic search, wrap Mem0 cloud as an optional vector layer that gracefully degrades to SQLite when unconfigured or offline.
+* **Consequence:** Zero setup overhead — developers clone the repo and it immediately works. No external PostgreSQL dependency required for local development or MCP usage.
 
 ---
 

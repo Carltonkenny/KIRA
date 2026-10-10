@@ -1,39 +1,40 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 from database import DatabaseManager
+
 
 @pytest.fixture
 def mock_db_manager():
     manager = DatabaseManager()
-    manager.use_sqlite = False
-    manager.pool = MagicMock()
+    manager._execute_sqlite = MagicMock()
     return manager
+
 
 @pytest.mark.asyncio
 async def test_get_profile_default(mock_db_manager):
-    # Setup mock return value for fetchrow (simulating no profile found)
-    mock_conn = AsyncMock()
-    mock_conn.fetchrow.return_value = None
-    
-    mock_db_manager.pool.acquire.return_value.__aenter__.return_value = mock_conn
+    # Setup mock return value for _execute_sqlite (simulating no profile found)
+    mock_db_manager._execute_sqlite.return_value = []
     
     profile = await mock_db_manager.get_profile("test_user")
     
     assert profile["primary_use"] == "development"
     assert profile["density_preference"] == "short"
-    mock_conn.fetchrow.assert_called_once()
+    mock_db_manager._execute_sqlite.assert_called_once()
+    
+    # Verify exact query and params passed to execute_sqlite
+    args = mock_db_manager._execute_sqlite.call_args[0]
+    assert "SELECT primary_use" in args[0]
+    assert args[1] == ("test_user",)
+
 
 @pytest.mark.asyncio
 async def test_get_profile_custom(mock_db_manager):
-    # Setup mock return value for fetchrow (simulating profile exists)
-    mock_conn = AsyncMock()
-    mock_conn.fetchrow.return_value = {
+    # Setup mock return value (simulating profile exists)
+    mock_db_manager._execute_sqlite.return_value = [{
         "primary_use": "copywriting",
         "preferred_tone": "friendly",
         "density_preference": "detailed"
-    }
-    
-    mock_db_manager.pool.acquire.return_value.__aenter__.return_value = mock_conn
+    }]
     
     profile = await mock_db_manager.get_profile("test_user")
     
@@ -41,19 +42,19 @@ async def test_get_profile_custom(mock_db_manager):
     assert profile["preferred_tone"] == "friendly"
     assert profile["density_preference"] == "detailed"
 
+
 @pytest.mark.asyncio
 async def test_add_memory(mock_db_manager):
-    mock_conn = AsyncMock()
-    mock_db_manager.pool.acquire.return_value.__aenter__.return_value = mock_conn
+    mock_db_manager._execute_sqlite.return_value = []
     
     memory_id = await mock_db_manager.add_memory("test_user", "tech_stack", "Uses Pytest")
     
     assert memory_id.startswith("mem-")
-    mock_conn.execute.assert_called_once()
+    mock_db_manager._execute_sqlite.assert_called_once()
     # Check that SQL INSERT was executed with correct params
-    args = mock_conn.execute.call_args[0]
+    args = mock_db_manager._execute_sqlite.call_args[0]
     assert "INSERT INTO user_memories" in args[0]
-    assert args[1] == memory_id
-    assert args[2] == "test_user"
-    assert args[3] == "tech_stack"
-    assert args[4] == "Uses Pytest"
+    assert args[1][0] == memory_id
+    assert args[1][1] == "test_user"
+    assert args[1][2] == "tech_stack"
+    assert args[1][3] == "Uses Pytest"

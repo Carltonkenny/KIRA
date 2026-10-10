@@ -1,58 +1,33 @@
-"""KIRA Database Manager — SQLite (local) and PostgreSQL (production) dual-mode adapter."""
+"""KIRA Database Manager — SQLite-only local database manager."""
 
 import os
 import re
-import sys
 import uuid
 import sqlite3
-import asyncpg
+import logging
 from typing import List, Dict, Any, Optional
-from config import POSTGRES_URL
 
-# Mode: 'local' (SQLite) or 'postgres' (Supabase/PostgreSQL)
-DATABASE_MODE = os.getenv("DATABASE_MODE", "local").lower()
-SQLITE_DB_PATH = "kira_local.db"
+logger = logging.getLogger("kira.database")
+
+# Constants
+LOCAL_USER_ID = "local_user"
+CATEGORY_AUTO = "auto_learned"
+SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), "kira_local.db")
 
 
 class DatabaseManager:
     def __init__(self) -> None:
-        self.pool: Optional[asyncpg.Pool] = None
-        self.use_sqlite: bool = (DATABASE_MODE == "local")
         self._initialized: bool = False
 
     async def initialize_pool(self) -> None:
-        """Initializes the database pool. Falls back to SQLite if PostgreSQL fails."""
+        """Initializes database status. SQLite is pool-less, so this is a status guard."""
         if self._initialized:
             return
         self._initialized = True
-
-        if self.use_sqlite:
-            print("KIRA INFO: Operating in local SQLite mode.", file=sys.stderr)
-            return
-
-        if self.pool is not None:
-            return
-
-        try:
-            cleaned_url = POSTGRES_URL
-            if cleaned_url.startswith("postgresql+asyncpg://"):
-                cleaned_url = cleaned_url.replace("postgresql+asyncpg://", "postgresql://")
-            elif cleaned_url.startswith("postgres+asyncpg://"):
-                cleaned_url = cleaned_url.replace("postgres+asyncpg://", "postgresql://")
-            elif cleaned_url.startswith("postgres://"):
-                cleaned_url = cleaned_url.replace("postgres://", "postgresql://")
-
-            self.pool = await asyncpg.create_pool(cleaned_url, min_size=1, max_size=10)
-            print("KIRA INFO: PostgreSQL pool initialized successfully.", file=sys.stderr)
-        except Exception as e:
-            print(f"KIRA WARNING: Failed to connect to PostgreSQL. Falling back to SQLite. Error: {e}", file=sys.stderr)
-            self.use_sqlite = True
+        logger.info(f"SQLite database initialized with absolute path: {SQLITE_DB_PATH}")
 
     async def close(self) -> None:
-        """Closes any open PostgreSQL connection pool."""
-        if self.pool:
-            await self.pool.close()
-            self.pool = None
+        """Closes any database hooks. No-op for local SQLite."""
         self._initialized = False
 
     # --- SQLite Helpers ---
@@ -93,21 +68,14 @@ class DatabaseManager:
             schema_path = os.path.join(os.path.dirname(__file__), schema_path)
 
         if not os.path.exists(schema_path):
-            print(f"KIRA WARNING: Schema file not found at {schema_path}.", file=sys.stderr)
+            logger.warning(f"Schema file not found at {schema_path}.")
             return
 
         with open(schema_path, "r", encoding="utf-8") as f:
             schema_sql = f.read()
 
-        if self.use_sqlite:
-            self._execute_sqlite(schema_sql)
-            print("KIRA INFO: SQLite database tables initialized successfully.", file=sys.stderr)
-            return
-
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
-                await conn.execute(schema_sql)
-        print("KIRA INFO: PostgreSQL database tables verified/created successfully.", file=sys.stderr)
+        self._execute_sqlite(schema_sql)
+        logger.info("SQLite database tables verified/created successfully.")
 
     # --- Profile Operations ---
 
@@ -117,13 +85,8 @@ class DatabaseManager:
         default = {"primary_use": "development", "preferred_tone": "direct", "density_preference": "short"}
         query = "SELECT primary_use, preferred_tone, density_preference FROM user_profiles WHERE user_id = $1"
 
-        if self.use_sqlite:
-            rows = self._execute_sqlite(query, (user_id,))
-            return rows[0] if rows else default
-
-        async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(query, user_id)
-            return dict(row) if row else default
+        rows = self._execute_sqlite(query, (user_id,))
+        return rows[0] if rows else default
 
     async def save_profile(self, user_id: str, profile_data: Dict[str, Any]) -> None:
         """Saves or updates user profile details."""
@@ -132,26 +95,11 @@ class DatabaseManager:
         preferred_tone = profile_data.get("preferred_tone", "direct")
         density_preference = profile_data.get("density_preference", "short")
 
-        if self.use_sqlite:
-            # SQLite uses INSERT OR REPLACE instead of ON CONFLICT
-            self._execute_sqlite(
-                """INSERT OR REPLACE INTO user_profiles (user_id, primary_use, preferred_tone, density_preference, updated_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)""",
-                (user_id, primary_use, preferred_tone, density_preference)
-            )
-            return
-
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                """INSERT INTO user_profiles (user_id, primary_use, preferred_tone, density_preference, updated_at)
-                VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-                ON CONFLICT (user_id) DO UPDATE
-                SET primary_use = EXCLUDED.primary_use,
-                    preferred_tone = EXCLUDED.preferred_tone,
-                    density_preference = EXCLUDED.density_preference,
-                    updated_at = CURRENT_TIMESTAMP""",
-                user_id, primary_use, preferred_tone, density_preference
-            )
+        self._execute_sqlite(
+            """INSERT OR REPLACE INTO user_profiles (user_id, primary_use, preferred_tone, density_preference, updated_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+            (user_id, primary_use, preferred_tone, density_preference)
+        )
 
     # --- Memory Operations ---
 
@@ -159,40 +107,22 @@ class DatabaseManager:
         """Returns all memories for the user."""
         await self.initialize_pool()
         query = "SELECT id, category, fact, created_at FROM user_memories WHERE user_id = $1 ORDER BY created_at DESC"
-
-        if self.use_sqlite:
-            return self._execute_sqlite(query, (user_id,))
-
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, user_id)
-            return [dict(row) for row in rows]
+        return self._execute_sqlite(query, (user_id,))
 
     async def add_memory(self, user_id: str, category: str, fact: str) -> str:
         """Adds a new fact to user memories."""
         await self.initialize_pool()
         memory_id = f"mem-{uuid.uuid4().hex[:12]}"
         query = "INSERT INTO user_memories (id, user_id, category, fact, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)"
-
-        if self.use_sqlite:
-            self._execute_sqlite(query, (memory_id, user_id, category, fact))
-            return memory_id
-
-        async with self.pool.acquire() as conn:
-            await conn.execute(query, memory_id, user_id, category, fact)
+        self._execute_sqlite(query, (memory_id, user_id, category, fact))
         return memory_id
 
     async def delete_memory(self, user_id: str, memory_id: str) -> bool:
         """Deletes a fact from user memories."""
         await self.initialize_pool()
         query = "DELETE FROM user_memories WHERE id = $1 AND user_id = $2"
-
-        if self.use_sqlite:
-            self._execute_sqlite(query, (memory_id, user_id))
-            return True
-
-        async with self.pool.acquire() as conn:
-            result = await conn.execute(query, memory_id, user_id)
-            return result.endswith("1")
+        self._execute_sqlite(query, (memory_id, user_id))
+        return True
 
     # --- Chat History Operations ---
 
@@ -202,13 +132,7 @@ class DatabaseManager:
         query = """SELECT id, role, message, refined_prompt, created_at
                    FROM chat_history WHERE session_id = $1
                    ORDER BY created_at ASC LIMIT $2"""
-
-        if self.use_sqlite:
-            return self._execute_sqlite(query, (session_id, limit))
-
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, session_id, limit)
-            return [dict(row) for row in rows]
+        return self._execute_sqlite(query, (session_id, limit))
 
     async def save_history(
         self, user_id: str, session_id: str, role: str, message: str, refined_prompt: Optional[str] = None
@@ -218,13 +142,7 @@ class DatabaseManager:
         history_id = f"hist-{uuid.uuid4().hex[:12]}"
         query = """INSERT INTO chat_history (id, user_id, session_id, role, message, refined_prompt, created_at)
                    VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)"""
-
-        if self.use_sqlite:
-            self._execute_sqlite(query, (history_id, user_id, session_id, role, message, refined_prompt))
-            return history_id
-
-        async with self.pool.acquire() as conn:
-            await conn.execute(query, history_id, user_id, session_id, role, message, refined_prompt)
+        self._execute_sqlite(query, (history_id, user_id, session_id, role, message, refined_prompt))
         return history_id
 
     async def get_all_history(self, limit: int = 20) -> List[Dict[str, Any]]:
@@ -234,13 +152,7 @@ class DatabaseManager:
                    FROM chat_history
                    WHERE role = 'user' AND refined_prompt IS NOT NULL
                    ORDER BY created_at DESC LIMIT $1"""
-
-        if self.use_sqlite:
-            return self._execute_sqlite(query, (limit,))
-
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, limit)
-            return [dict(row) for row in rows]
+        return self._execute_sqlite(query, (limit,))
 
     # --- MCP Log Operations ---
 
@@ -252,13 +164,7 @@ class DatabaseManager:
         log_id = f"log-{uuid.uuid4().hex[:12]}"
         query = """INSERT INTO mcp_logs (id, tool_name, agent_name, arguments, duration_ms, status, created_at)
                    VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)"""
-
-        if self.use_sqlite:
-            self._execute_sqlite(query, (log_id, tool_name, agent_name, arguments, duration_ms, status))
-            return log_id
-
-        async with self.pool.acquire() as conn:
-            await conn.execute(query, log_id, tool_name, agent_name, arguments, duration_ms, status)
+        self._execute_sqlite(query, (log_id, tool_name, agent_name, arguments, duration_ms, status))
         return log_id
 
     async def get_mcp_logs(self, limit: int = 50) -> List[Dict[str, Any]]:
@@ -266,13 +172,7 @@ class DatabaseManager:
         await self.initialize_pool()
         query = """SELECT id, tool_name, agent_name, arguments, duration_ms, status, created_at
                    FROM mcp_logs ORDER BY created_at DESC LIMIT $1"""
-
-        if self.use_sqlite:
-            return self._execute_sqlite(query, (limit,))
-
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, limit)
-            return [dict(row) for row in rows]
+        return self._execute_sqlite(query, (limit,))
 
 
 # Global Database Manager instance

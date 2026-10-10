@@ -1,7 +1,7 @@
 """User profile route handlers."""
 
 from fastapi import APIRouter
-from database import db
+from database import db, LOCAL_USER_ID
 from routes.schemas import ProfileRequest
 
 router = APIRouter(prefix="/api/v1", tags=["profile"])
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/v1", tags=["profile"])
 @router.get("/profile")
 async def api_get_profile() -> dict:
     """Fetches user preference profiles."""
-    return await db.get_profile("local_user")
+    return await db.get_profile(LOCAL_USER_ID)
 
 
 @router.post("/profile")
@@ -21,5 +21,5 @@ async def api_save_profile(request: ProfileRequest) -> dict:
         "preferred_tone": request.preferred_tone,
         "density_preference": request.density_preference
     }
-    await db.save_profile("local_user", profile_data)
+    await db.save_profile(LOCAL_USER_ID, profile_data)
     return {"status": "saved"}

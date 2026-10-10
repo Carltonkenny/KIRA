@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Memory, Profile, ChatMessage, MCPLog, RefinementHistoryItem } from '../types';
 
-const API_BASE = 'http://localhost:8090';
+const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8090';
 
 export function useApi(session_id: string) {
   // Core states
