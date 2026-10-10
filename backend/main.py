@@ -1,16 +1,18 @@
 """KIRA API — Context-Aware Prompt Refinement Engine Backend."""
 
-import sys
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import db
-from config import PORT, ENVIRONMENT
+from config import PORT, ENVIRONMENT, ALLOWED_ORIGINS
 from routes.refine import router as refine_router
 from routes.memories import router as memories_router
 from routes.profile import router as profile_router
 from routes.mcp import router as mcp_router
+
+logger = logging.getLogger("kira.main")
 
 
 @asynccontextmanager
@@ -18,12 +20,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler — replaces deprecated on_event decorators."""
     try:
         await db.initialize_tables()
-        print("KIRA INFO: FastAPI database schema successfully checked.")
+        logger.info("FastAPI database schema successfully checked.")
     except Exception as e:
-        print(f"KIRA ERROR: Database initialization failed at startup: {e}", file=sys.stderr)
+        logger.error(f"Database initialization failed at startup: {e}")
     yield
     await db.close()
-    print("KIRA INFO: Database connections closed.")
+    logger.info("Database connections closed.")
 
 
 # Initialize FastAPI App
@@ -34,10 +36,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS — restricted to local dev frontend
+# Enable CORS — origins controlled via ALLOWED_ORIGINS env variable
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,8 +54,13 @@ app.include_router(mcp_router)
 
 @app.get("/health")
 async def health_check() -> dict:
-    """Simple status endpoint to confirm service is running."""
-    return {"status": "ok", "environment": ENVIRONMENT}
+    """Health check endpoint for uptime monitors (Railway, UptimeRobot, etc.)."""
+    return {
+        "status": "ok",
+        "environment": ENVIRONMENT,
+        "version": "3.0.0",
+        "allowed_origins": ALLOWED_ORIGINS,
+    }
 
 
 if __name__ == "__main__":

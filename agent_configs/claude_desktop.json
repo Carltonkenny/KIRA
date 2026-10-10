@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "kira": {
+      "command": "python",
+      "args": ["C:/Users/user/OneDrive/Desktop/KIRA/backend/mcp_server.py"],
+      "env": {
+        "PYTHONPATH": "C:/Users/user/OneDrive/Desktop/KIRA/backend"
+      }
+    }
+  }
+}

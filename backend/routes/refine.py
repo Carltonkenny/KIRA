@@ -1,7 +1,8 @@
 """Prompt refinement and conversational chat route handlers."""
 
+import asyncio
 from fastapi import APIRouter
-from database import db
+from database import db, LOCAL_USER_ID, CATEGORY_AUTO
 from refiner import refine_prompt
 from routes.schemas import RefineRequest, ChatRequest
 
@@ -11,23 +12,22 @@ router = APIRouter(prefix="/api/v1", tags=["refine"])
 @router.post("/refine")
 async def api_refine(request: RefineRequest) -> dict:
     """Refines a raw prompt utilizing stored user preferences and context."""
-    user_id = "local_user"
+    user_id = LOCAL_USER_ID
 
     # 1. Fetch user profile & memory list
     profile = await db.get_profile(user_id)
     memories = await db.get_memories(user_id)
 
-    # 2. Run prompt refinery
-    result = refine_prompt(
-        raw_prompt=request.prompt,
-        profile=profile,
-        memories=memories,
-        density=request.density
+    # 2. Run prompt refinery in thread pool — LLM call is synchronous I/O,
+    #    offloading prevents blocking FastAPI's event loop during inference.
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        None, refine_prompt, request.prompt, profile, memories, request.density
     )
 
     # 3. Save auto-extracted memories
     for fact in result.new_memories:
-        await db.add_memory(user_id, category="auto_learned", fact=fact)
+        await db.add_memory(user_id, category=CATEGORY_AUTO, fact=fact)
 
     # 4. Save history
     await db.save_history(

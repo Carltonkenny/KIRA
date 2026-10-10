@@ -5,11 +5,16 @@ __pycache__/
 venv/
 .venv/
 .env
+backend/.env
 .env.local
 .env.*.local
 .pytest_cache/
 .vscode/
+
+# Database — never commit local DB files
 *.db
+*.sqlite
+*.sqlite3
 
 # Node
 node_modules/
@@ -17,10 +22,12 @@ dist/
 dist-ssr/
 *.local
 
-# System/IDE
+# System / IDE
 .DS_Store
 Thumbs.db
-.agents/
-mcp_config.json
+.kilo/
 graphify-out/
 
+# Agent configs — these should never be auto-committed
+.agents/
+mcp_config.json

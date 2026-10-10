@@ -1,42 +1,58 @@
 """MCP status monitoring, trace logs, and history route handlers."""
 
-import sys
 import json
 import os
-import subprocess
-import asyncio
 import time
+import logging
 from typing import Dict, List, Any
 
+import psutil
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from database import db
 from routes.schemas import MCPStatusResponse
 
+logger = logging.getLogger("kira.routes.mcp")
+
 router = APIRouter(prefix="/api/v1", tags=["mcp"])
 
-# --- Process scan cache to avoid spawning wmic every 2 seconds ---
+# Process scan cache — avoids scanning on every status poll
 _status_cache: Dict[str, Any] = {"data": [], "timestamp": 0.0}
 _CACHE_TTL_SECONDS = 3.0
 
 
 def get_mcp_config() -> Dict[str, Any]:
-    """Reads the MCP server configuration from the IDE config file."""
-    paths = [
+    """Reads MCP server configuration. Checks common IDE config paths."""
+    candidates = [
         os.path.expanduser("~/.gemini/antigravity-ide/mcp_config.json"),
-        r"C:\Users\user\.gemini\antigravity-ide\mcp_config.json"
+        os.path.expanduser("~/.cursor/mcp.json"),
+        os.path.expanduser("~/.config/claude/claude_desktop_config.json"),
     ]
-    for path in paths:
+    for path in candidates:
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
-                    return json.load(f).get("mcpServers", {})
+                    data = json.load(f)
+                    return data.get("mcpServers", {})
             except Exception as e:
-                print(f"KIRA WARNING: Failed to read mcp_config from {path}: {e}", file=sys.stderr)
+                logger.warning(f"Failed to read mcp_config from {path}: {e}")
     return {}
 
 
+def _get_running_cmdlines() -> List[str]:
+    """Returns lowercased cmdline strings for all running processes via psutil."""
+    cmdlines = []
+    for proc in psutil.process_iter(["cmdline"]):
+        try:
+            cmdline = proc.info.get("cmdline") or []
+            if cmdline:
+                cmdlines.append(" ".join(cmdline).lower())
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return cmdlines
+
+
 def check_mcp_status() -> List[Dict[str, Any]]:
-    """Scans OS processes to match configured MCP servers. Results are cached for 3 seconds."""
+    """Scans running processes to match configured MCP servers. Results cached for 3s."""
     now = time.monotonic()
     if (now - _status_cache["timestamp"]) < _CACHE_TTL_SECONDS and _status_cache["data"]:
         return _status_cache["data"]
@@ -45,36 +61,7 @@ def check_mcp_status() -> List[Dict[str, Any]]:
     if not config:
         return []
 
-    running_procs: List[Dict[str, Any]] = []
-    try:
-        result = subprocess.run(
-            ['wmic', 'process', 'get', 'CommandLine,ProcessId'],
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='ignore'
-        )
-        if result.returncode == 0:
-            lines = result.stdout.strip().split('\n')
-            if lines:
-                header = lines[0]
-                pid_index = header.find("ProcessId")
-                if pid_index != -1:
-                    for line in lines[1:]:
-                        if not line.strip():
-                            continue
-                        cmdline = line[:pid_index].strip()
-                        pid_str = line[pid_index:].strip()
-                        if cmdline and pid_str:
-                            try:
-                                running_procs.append({
-                                    "cmdline": cmdline.lower(),
-                                    "pid": int(pid_str)
-                                })
-                            except ValueError:
-                                pass
-    except Exception as e:
-        print(f"KIRA WARNING: Error scanning processes: {e}", file=sys.stderr)
+    running_cmdlines = _get_running_cmdlines()
 
     status_list: List[Dict[str, Any]] = []
     for name, server_info in config.items():
@@ -83,17 +70,13 @@ def check_mcp_status() -> List[Dict[str, Any]]:
         server_url = server_info.get("serverUrl", "")
 
         connected = False
-        pid = None
 
         if cmd:
             cmd_base = os.path.basename(cmd).lower().replace(".exe", "")
-            for proc in running_procs:
-                cmd_lower = proc["cmdline"]
-                if cmd_base in cmd_lower:
-                    matches_args = all(arg.lower() in cmd_lower for arg in args)
-                    if matches_args:
+            for cmdline in running_cmdlines:
+                if cmd_base in cmdline:
+                    if all(str(arg).lower() in cmdline for arg in args):
                         connected = True
-                        pid = proc["pid"]
                         break
         elif server_url:
             connected = True
@@ -103,7 +86,7 @@ def check_mcp_status() -> List[Dict[str, Any]]:
             "command": cmd or server_url,
             "args": args,
             "status": "connected" if connected else "disconnected",
-            "pid": pid
+            "pid": None,
         })
 
     _status_cache["data"] = status_list
@@ -122,7 +105,8 @@ async def api_get_mcp_status() -> dict:
 
 @router.websocket("/mcp/status/ws")
 async def websocket_mcp_status(websocket: WebSocket) -> None:
-    """WebSocket endpoint to stream live MCP server status."""
+    """WebSocket endpoint to stream live MCP server status updates."""
+    import asyncio
     await websocket.accept()
     try:
         while True:
@@ -132,7 +116,7 @@ async def websocket_mcp_status(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        print(f"KIRA WARNING: WebSocket error: {e}", file=sys.stderr)
+        logger.warning(f"WebSocket error: {e}")
 
 
 @router.get("/mcp/logs")

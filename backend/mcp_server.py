@@ -1,14 +1,15 @@
 """KIRA MCP Server — FastMCP tool definitions with automatic trace logging."""
 
-import json
-import sys
+import logging
 from mcp.server.fastmcp import FastMCP
-from database import db
+from database import db, LOCAL_USER_ID, CATEGORY_AUTO
 from refiner import refine_prompt
-from config import get_llm_client, get_model_name
+from config import get_llm_client, get_model_name, parse_llm_json
 from decorators import traced_tool
 import classifier
 import memory
+
+logger = logging.getLogger("kira.mcp")
 
 # Initialize FastMCP Server
 mcp = FastMCP("Kira-IDE-Partner")
@@ -26,17 +27,16 @@ async def forge_refine(prompt: str, session_id: str, density: str = "short", age
         density: Target prompt density: 'short', 'medium', or 'detailed'.
         agent_name: The calling agent identifier for trace logging.
     """
-    user_id = "local_user"
+    user_id = LOCAL_USER_ID
 
-    await db.initialize_tables()
     profile = await db.get_profile(user_id)
     memories = await db.get_memories(user_id)
 
     result = refine_prompt(prompt, profile, memories, density=density)
 
     for fact in result.new_memories:
-        await db.add_memory(user_id, category="auto_learned", fact=fact)
-        print(f"KIRA learned memory: {fact}", file=sys.stderr)
+        await db.add_memory(user_id, category=CATEGORY_AUTO, fact=fact)
+        logger.info(f"KIRA learned memory: {fact}")
 
     await db.save_history(
         user_id=user_id,
@@ -68,32 +68,29 @@ async def kira_enhance(
         session_id: A unique identifier for the current session to link history.
         density: Target density budget ('short', 'medium', or 'detailed').
     """
-    user_id = "local_user"
+    user_id = LOCAL_USER_ID
 
     # 1. Check skip classifier
     classification = classifier.classify(prompt)
     if classification["action"] == "pass_through":
-        print(f"KIRA INFO: Pass-through prompt. Reason: {classification['reason']}", file=sys.stderr)
+        logger.info(f"Pass-through prompt. Reason: {classification['reason']}")
         return prompt
 
-    # 2. Initialize DB tables
-    await db.initialize_tables()
-
-    # 3. Recall context from Mem0/local fallback
+    # 2. Recall context from Mem0/local fallback
     memories = await memory.recall(prompt, user_id=user_id, agent_name=agent_name)
 
-    # 4. Fetch profile
+    # 3. Fetch profile
     profile = await db.get_profile(user_id)
 
-    # 5. Call refiner (LLM structured call)
+    # 4. Call refiner (LLM structured call)
     result = refine_prompt(prompt, profile, memories, density=density)
 
-    # 6. Save newly learned memories
+    # 5. Save newly learned memories
     for fact in result.new_memories:
         await memory.remember(fact, user_id=user_id, agent_name=agent_name)
-        print(f"KIRA learned memory: {fact}", file=sys.stderr)
+        logger.info(f"KIRA learned memory: {fact}")
 
-    # 7. Save to chat history
+    # 6. Save to chat history
     active_session_id = session_id if session_id else f"session-{agent_name if agent_name else 'generic'}"
     await db.save_history(
         user_id=user_id,
@@ -118,9 +115,8 @@ async def forge_chat(message: str, session_id: str, agent_name: str = "frontend"
         session_id: The active session ID mapping to past history.
         agent_name: The calling agent identifier for trace logging.
     """
-    user_id = "local_user"
+    user_id = LOCAL_USER_ID
 
-    await db.initialize_tables()
     history = await db.get_history(session_id, limit=10)
     profile = await db.get_profile(user_id)
     db_memories = await db.get_memories(user_id)
@@ -177,19 +173,12 @@ Produce a JSON response:
             temperature=0.2
         )
         content = response.choices[0].message.content.strip()
-
-        # Clean markdown wrappers if any
-        if content.startswith("```"):
-            lines = content.split("\n")
-            if lines[0].startswith("```json") or lines[0].startswith("```"):
-                content = "\n".join(lines[1:-1])
-
-        data = json.loads(content)
+        data = parse_llm_json(content)
         chat_reply = data.get("response", "Prompt updated successfully.")
         new_refined = data.get("refined_prompt", last_refined)
 
     except Exception as e:
-        print(f"KIRA ERROR: Conversational update failed: {e}", file=sys.stderr)
+        logger.error(f"Conversational update failed: {e}")
         chat_reply = "Iterative update encountered an error. Applied basic append."
         new_refined = f"{last_refined}\n\n*Applied change request: {message}*"
 
@@ -209,8 +198,7 @@ async def get_kira_memories(agent_name: str = "") -> str:
     Args:
         agent_name: Optional agent name to filter memories.
     """
-    user_id = "local_user"
-    await db.initialize_tables()
+    user_id = LOCAL_USER_ID
 
     memories = await memory.get_all_memories(user_id=user_id, agent_name=agent_name)
     if not memories:
@@ -218,7 +206,7 @@ async def get_kira_memories(agent_name: str = "") -> str:
 
     result = f"### KIRA Current Memories (Agent: {agent_name or 'All'})\n"
     for m in memories:
-        category = m.get("category", "auto_learned")
+        category = m.get("category", CATEGORY_AUTO)
         fact = m.get("fact", "")
         mem_id = m.get("id", "N/A")
         result += f"- [{category}] {fact} (ID: {mem_id})\n"
@@ -226,5 +214,11 @@ async def get_kira_memories(agent_name: str = "") -> str:
 
 
 if __name__ == "__main__":
-    # Standard fastmcp serve executor
-    mcp.run()
+    import asyncio
+
+    async def _startup() -> None:
+        """Initialize DB tables before FastMCP takes over the event loop."""
+        await db.initialize_tables()
+
+    asyncio.run(_startup())
+    mcp.run()  # FastMCP handles its own event loop from here
