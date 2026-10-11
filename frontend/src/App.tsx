@@ -14,6 +14,7 @@ import { SessionsTab } from './components/SessionsTab';
 import { GraphTab } from './components/GraphTab';
 import { McpModal } from './components/McpModal';
 import { AuthModal } from './components/AuthModal';
+import { ProfileModal } from './components/ProfileModal';
 import { LandingPage } from './components/LandingPage';
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'Home' | 'Sessions' | 'Graph' | 'Memory'>('Home');
   const [isMcpModalOpen, setIsMcpModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const api = useApi(session_id);
 
@@ -64,6 +66,7 @@ export default function App() {
             onNewChat={handleNewChat}
             onOpenMcp={() => setIsMcpModalOpen(true)}
             onOpenAuth={() => setIsAuthModalOpen(true)}
+            onOpenProfile={() => setIsProfileModalOpen(true)}
             onOpenLanding={() => setViewMode('landing')}
             user={api.user}
           />
@@ -129,6 +132,21 @@ export default function App() {
         onLogin={api.login}
         onLogout={api.logout}
         currentUser={api.user}
+        onOpenProfile={() => setIsProfileModalOpen(true)}
+      />
+
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentUser={api.user}
+        onSaveProfile={api.saveProfileDetails}
+        onGoToApp={() => {
+          setViewMode('app');
+          setIsProfileModalOpen(false);
+        }}
+        onGoToMcp={() => {
+          setIsProfileModalOpen(true);
+        }}
       />
     </div>
   );

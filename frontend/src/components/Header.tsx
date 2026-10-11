@@ -8,6 +8,7 @@ interface HeaderProps {
   onNewChat: () => void;
   onOpenMcp: () => void;
   onOpenAuth: () => void;
+  onOpenProfile: () => void;
   onOpenLanding?: () => void;
   user: AuthUser | null;
 }
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNewChat,
   onOpenMcp,
   onOpenAuth,
+  onOpenProfile,
   onOpenLanding,
   user,
 }) => {
@@ -76,13 +78,26 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="mcp-pill-count">5 Tools</span>
           </button>
 
+          {/* Profile & Onboarding Settings */}
+          <button
+            className="action-auth-btn"
+            onClick={onOpenProfile}
+            title="Configure Developer Profile, Enterprise Tier & MCP Gateway"
+            style={{ background: 'rgba(99, 102, 241, 0.08)', borderColor: 'rgba(99, 102, 241, 0.22)' }}
+          >
+            <User size={13} style={{ color: '#a5b4fc' }} />
+            <span>Profile</span>
+          </button>
+
           {/* User Auth Session Button */}
           <button
             className="action-auth-btn"
             onClick={onOpenAuth}
             title={user ? `Signed in as ${user.email}` : "Sign in to your Neon database session"}
           >
-            <User size={13} />
+            <span className="auth-user-initial">
+              {user ? user.email.charAt(0).toUpperCase() : '⚡'}
+            </span>
             <span>{user ? user.email.split('@')[0] : 'Sign In'}</span>
             {user && <span className="auth-online-dot"></span>}
           </button>

@@ -34,12 +34,22 @@ export interface ChatMessage {
   suggested_actions?: string[];
 }
 
+export interface UserProfile {
+  name: string;
+  email: string;
+  enterprise_level: string;
+  referral_source: string;
+  interests: string[];
+  connection_mode: 'app' | 'mcp';
+}
+
 export interface AuthUser {
   user_id: string;
   email: string;
   session_id: string;
   is_new: boolean;
   memories_count?: number;
+  profile_details?: UserProfile;
 }
 
 export interface MCPServer {

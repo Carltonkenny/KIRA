@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Check, X, ArrowRight, Shield, Database, ExternalLink, User } from 'lucide-react';
+import { Mail, Check, X, ArrowRight, Shield, Database, ExternalLink, User, Sparkles } from 'lucide-react';
 import type { AuthUser } from '../types';
 
 interface AuthModalProps {
@@ -8,6 +8,7 @@ interface AuthModalProps {
   onLogin: (email: string) => Promise<AuthUser | null>;
   currentUser: AuthUser | null;
   onLogout: () => void;
+  onOpenProfile?: () => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -16,6 +17,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onLogin,
   currentUser,
   onLogout,
+  onOpenProfile,
 }) => {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,14 +35,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     if (authData) {
       if (authData.is_new) {
-        setMessage(`Welcome! New session created and registered in Neon DB.`);
+        setMessage(`Welcome! Opening developer onboarding & profile setup...`);
+        setTimeout(() => {
+          onClose();
+          setMessage(null);
+          if (onOpenProfile) onOpenProfile();
+        }, 600);
       } else {
         setMessage(`Welcome back! Restored ${authData.memories_count || 0} memories from Neon DB.`);
+        setTimeout(() => {
+          onClose();
+          setMessage(null);
+        }, 1000);
       }
-      setTimeout(() => {
-        onClose();
-        setMessage(null);
-      }, 1200);
     } else {
       setMessage('Authentication failed. Check backend connection.');
     }
@@ -102,7 +109,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              <div className="auth-action-row">
+              <div className="auth-action-row" style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="landing-btn-secondary"
+                  onClick={() => {
+                    onClose();
+                    if (onOpenProfile) onOpenProfile();
+                  }}
+                  style={{ flex: 1, padding: '8px 14px', fontSize: '12px' }}
+                >
+                  <Sparkles size={13} style={{ marginRight: '6px' }} />
+                  <span>Configure Profile & MCP</span>
+                </button>
                 <button
                   className="btn-modal-logout"
                   onClick={() => {

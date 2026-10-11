@@ -302,6 +302,29 @@ export function useApi(session_id: string) {
     return false;
   }, [fetchGraph]);
 
+  // Save extended developer profile
+  const saveProfileDetails = useCallback(async (details: any) => {
+    try {
+      localStorage.setItem('kira_user_profile', JSON.stringify(details));
+      if (user) {
+        const updatedUser = { ...user, profile_details: details };
+        setUser(updatedUser);
+        localStorage.setItem('kira_auth_user', JSON.stringify(updatedUser));
+      }
+      await fetch(`${API_BASE}/api/v1/profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          primary_use: `${details.enterprise_level} | ${details.interests?.join(', ')}`,
+          preferred_tone: 'direct',
+          density_preference: density,
+        }),
+      });
+    } catch (e) {
+      console.error('Failed to save profile details:', e);
+    }
+  }, [user, density]);
+
   return {
     projectId,
     setProjectId,
@@ -331,5 +354,6 @@ export function useApi(session_id: string) {
     user,
     login,
     logout,
+    saveProfileDetails,
   };
 }
