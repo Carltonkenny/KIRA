@@ -35,15 +35,19 @@ const REFERRAL_OPTIONS = [
   { id: 'Other', label: 'Search / Other', icon: '🌐' },
 ];
 
-const INTEREST_TAGS = [
-  'React & Next.js',
-  'FastAPI & Python',
-  'TypeScript & Node',
-  'Neon PostgreSQL',
-  'AI Coding Agents',
-  'Anti-Hallucination Guardrails',
-  'Project Memory Matrix',
-  'System Design & Microservices',
+const HOBBY_AND_PASSION_TAGS = [
+  '🎮 Video Games & Game Dev',
+  '🚀 Indie Hacking & Side Hustles',
+  '📖 Sci-Fi & Speculative Fiction',
+  '🎵 Music Production & Beats',
+  '☕ Specialty Coffee & Food Craft',
+  '🏃 Fitness, Running & Outdoors',
+  '🎨 Digital Art & Visual Design',
+  '🤖 Robotics, IoT & Hardware',
+  '♟️ Chess & Logic Puzzles',
+  '✍️ Creative Writing & Sci-Fi',
+  '📈 Markets & Crypto Trading',
+  '🛠️ 3D Printing & Tinkering',
 ];
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -58,9 +62,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [enterpriseLevel, setEnterpriseLevel] = useState('Indie / Solo Developer');
   const [referralSource, setReferralSource] = useState('X / Twitter');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([
-    'React & Next.js',
-    'AI Coding Agents',
-    'Neon PostgreSQL',
+    '🎮 Video Games & Game Dev',
+    '🚀 Indie Hacking & Side Hustles',
+    '📖 Sci-Fi & Speculative Fiction',
   ]);
   const [mode, setMode] = useState<'app' | 'mcp'>('app');
   const [copiedSection, setCopiedSection] = useState<'prompt' | 'config' | null>(null);
@@ -129,7 +133,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const mcpPrompt = `# KIRA Prompt Enhancement Rule
 You are connected to the KIRA Prompt Intelligence MCP Server.
 Developer Profile: ${effectiveName} (${enterpriseLevel})
-Primary Stack Focus: ${selectedInterests.join(', ') || 'Fullstack Engineering'}
+Hobbies & Creative Domains: ${selectedInterests.join(', ') || 'Indie Hacking, Creative Building'}
 
 Operational Directives:
 1. Before answering any technical coding task, architecture question, or bug report:
@@ -247,14 +251,14 @@ Operational Directives:
             </div>
           </div>
 
-          {/* Section 4: Primary Interests */}
+          {/* Section 4: Hobbies & Creative Pursuits */}
           <div className="profile-section">
             <label className="profile-field-label">
-              <span>Primary Tech Stack & Interests</span>
-              <span className="field-hint">Injected into your initial project knowledge base</span>
+              <span>Favorite Hobbies, Builder Passions & Free-Time Pursuits</span>
+              <span className="field-hint">Helps KIRA tune analogies, personality, and tone to how you genuinely think</span>
             </label>
             <div className="profile-interests-wrap">
-              {INTEREST_TAGS.map((tag) => {
+              {HOBBY_AND_PASSION_TAGS.map((tag) => {
                 const isSelected = selectedInterests.includes(tag);
                 return (
                   <button
