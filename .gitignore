@@ -42,3 +42,6 @@ scratch_*.json
 benchmark_full_data.json
 stress_test_report.json
 memory_wiring_result.json
+backend/init_neon_tables.py
+recordings/
+
