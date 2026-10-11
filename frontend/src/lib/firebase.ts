@@ -3,12 +3,12 @@ import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, type Auth } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCG9hTNNdjtgknPAIX7hpQ23B61F1HNxZ8",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "kira-89ff4.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "kira-89ff4",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "kira-89ff4.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1079238744056",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1079238744056:web:d6c44be384a8a1c2fb680d",
 };
 
 let app: FirebaseApp | null = null;
@@ -16,7 +16,7 @@ let auth: Auth | null = null;
 const googleProvider = new GoogleAuthProvider();
 
 export function isFirebaseConfigured(): boolean {
-  return Boolean(import.meta.env.VITE_FIREBASE_API_KEY);
+  return Boolean(firebaseConfig.apiKey);
 }
 
 export function getFirebaseAuth(): Auth | null {
@@ -46,7 +46,7 @@ export async function loginWithGoogle(): Promise<{ email: string; displayName: s
       };
     } catch (err: any) {
       console.warn('Firebase popup cancelled or error:', err?.message);
-      // Fallback on popup blocked
+      // Fallback on popup cancelled by user
       return {
         email: 'carlton.kenny@gmail.com',
         displayName: 'Carlton Kenny',
@@ -55,7 +55,7 @@ export async function loginWithGoogle(): Promise<{ email: string; displayName: s
     }
   }
 
-  // Seamless developer test mode when keys are pending in Vercel
+  // Developer fallback
   return {
     email: 'carlton.kenny@gmail.com',
     displayName: 'Carlton Kenny',
