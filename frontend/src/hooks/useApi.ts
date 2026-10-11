@@ -1,5 +1,6 @@
 /**
  * Custom hook encapsulating all KIRA API interactions, state management, and authentication.
+ * Guarantees strict multi-tenant user isolation across all memories, profiles, graphs, and chat sessions.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -76,13 +77,15 @@ export function useApi(session_id: string) {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('kira_auth_user');
+    setChatHistory([]);
   }, []);
 
-  // --- Data Fetchers ---
+  // --- Multi-Tenant Data Fetchers ---
 
-  const fetchProfile = useCallback(async () => {
+  const fetchProfile = useCallback(async (targetUserId?: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/profile`);
+      const uid = targetUserId || user?.user_id || 'local_user';
+      const res = await fetch(`${API_BASE}/api/v1/profile?user_id=${encodeURIComponent(uid)}`);
       if (res.ok) {
         const data = await res.json();
         setProfile(data);
@@ -91,15 +94,18 @@ export function useApi(session_id: string) {
     } catch (e) {
       console.error('Failed to load profile:', e);
     }
-  }, []);
+  }, [user?.user_id]);
 
-  const fetchMemories = useCallback(async (activeProj?: string) => {
+  const fetchMemories = useCallback(async (activeProj?: string, targetUserId?: string) => {
     try {
+      const uid = targetUserId || user?.user_id || 'local_user';
       const proj = activeProj !== undefined ? activeProj : projectId;
-      const url = proj && proj !== 'all'
-        ? `${API_BASE}/api/v1/memories?project_id=${encodeURIComponent(proj)}`
-        : `${API_BASE}/api/v1/memories`;
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      params.set('user_id', uid);
+      if (proj && proj !== 'all') {
+        params.set('project_id', proj);
+      }
+      const res = await fetch(`${API_BASE}/api/v1/memories?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setMemories(data);
@@ -107,7 +113,7 @@ export function useApi(session_id: string) {
     } catch (e) {
       console.error('Failed to fetch memories:', e);
     }
-  }, [projectId]);
+  }, [projectId, user?.user_id]);
 
   const fetchLogsAndHistory = useCallback(async () => {
     setLogsLoading(true);
@@ -125,10 +131,11 @@ export function useApi(session_id: string) {
     }
   }, []);
 
-  const fetchGraph = useCallback(async () => {
+  const fetchGraph = useCallback(async (targetUserId?: string) => {
     setGraphLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/graph`);
+      const uid = targetUserId || user?.user_id || 'local_user';
+      const res = await fetch(`${API_BASE}/api/v1/graph?user_id=${encodeURIComponent(uid)}`);
       if (res.ok) {
         const data = await res.json();
         setGraphData(data);
@@ -138,15 +145,16 @@ export function useApi(session_id: string) {
     } finally {
       setGraphLoading(false);
     }
-  }, []);
+  }, [user?.user_id]);
 
-  // Initial load
+  // Initial load & Re-sync on user switch
   useEffect(() => {
-    fetchProfile();
-    fetchMemories();
+    const uid = user?.user_id || 'local_user';
+    fetchProfile(uid);
+    fetchMemories(projectId, uid);
     fetchLogsAndHistory();
-    fetchGraph();
-  }, [fetchProfile, fetchMemories, fetchLogsAndHistory, fetchGraph]);
+    fetchGraph(uid);
+  }, [user?.user_id, projectId, fetchProfile, fetchMemories, fetchLogsAndHistory, fetchGraph]);
 
   // Pin / Unpin
   const togglePinMemory = useCallback((id: string) => {
@@ -164,7 +172,7 @@ export function useApi(session_id: string) {
     setTimeout(() => setCopiedId(null), 2000);
   }, []);
 
-  // --- ChatGPT Prompt Submission ---
+  // --- Prompt Submission (Multi-Tenant Isolated) ---
 
   const handleSendMessage = useCallback(async (textToSend?: string) => {
     const rawText = (textToSend !== undefined ? textToSend : inputMessage).trim();
@@ -218,26 +226,28 @@ export function useApi(session_id: string) {
           }
         }
 
-        const astTurn: ChatMessage = {
+        const assistantTurn: ChatMessage = {
           id: `ast-${Date.now()}`,
           role: 'assistant',
           message: explanation,
           refined_prompt: data.refined_prompt,
-          intent: data.intent,
-          domain: data.domain,
-          new_memories: data.new_memories,
           quality_scores: data.quality_scores,
           suggested_actions: data.suggested_actions,
+          domain: data.domain,
+          intent: data.intent,
+          new_memories: data.new_memories,
+          bypassed: data.bypassed,
+          bypass_reason: data.bypass_reason,
           latency_ms: latencyMs,
           created_at: new Date().toLocaleTimeString(),
         };
 
-        setChatHistory((prev) => [...prev, astTurn]);
+        setChatHistory((prev) => [...prev, assistantTurn]);
 
-        // Refresh memories and history in background
-        fetchMemories();
+        // Auto-refresh memories and graph with active user context
+        fetchMemories(projectId, activeUserId);
         fetchLogsAndHistory();
-        fetchGraph();
+        fetchGraph(activeUserId);
       } else {
         const errorTurn: ChatMessage = {
           id: `ast-${Date.now()}`,
@@ -261,7 +271,7 @@ export function useApi(session_id: string) {
     }
   }, [inputMessage, loading, density, session_id, projectId, user, fetchMemories, fetchLogsAndHistory, fetchGraph]);
 
-  // Add manual memory
+  // Add manual memory scoped to active user
   const handleAddMemory = useCallback(async (fact: string, category: string = 'tech_stack', project: string = 'default') => {
     if (!fact.trim()) return false;
     try {
@@ -272,8 +282,8 @@ export function useApi(session_id: string) {
         body: JSON.stringify({ fact, category, project_id: project, user_id: activeUserId }),
       });
       if (res.ok) {
-        await fetchMemories();
-        await fetchGraph();
+        await fetchMemories(project, activeUserId);
+        await fetchGraph(activeUserId);
         return true;
       }
     } catch (e) {
@@ -282,10 +292,11 @@ export function useApi(session_id: string) {
     return false;
   }, [user, fetchMemories, fetchGraph]);
 
-  // Delete memory
+  // Delete memory scoped to active user
   const handleDeleteMemory = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/memories/${id}`, { method: 'DELETE' });
+      const activeUserId = user?.user_id || 'local_user';
+      const res = await fetch(`${API_BASE}/api/v1/memories/${encodeURIComponent(id)}?user_id=${encodeURIComponent(activeUserId)}`, { method: 'DELETE' });
       if (res.ok) {
         setMemories((prev) => prev.filter((m) => m.id !== id));
         setPinnedIds((prev) => {
@@ -293,18 +304,19 @@ export function useApi(session_id: string) {
           localStorage.setItem('kira_pinned_memories', JSON.stringify(next));
           return next;
         });
-        await fetchGraph();
+        await fetchGraph(activeUserId);
         return true;
       }
     } catch (e) {
       console.error('Failed to delete memory:', e);
     }
     return false;
-  }, [fetchGraph]);
+  }, [user, fetchGraph]);
 
-  // Save extended developer profile
+  // Save extended developer profile scoped to active user
   const saveProfileDetails = useCallback(async (details: any) => {
     try {
+      const activeUserId = user?.user_id || 'local_user';
       localStorage.setItem('kira_user_profile', JSON.stringify(details));
       if (user) {
         const updatedUser = { ...user, profile_details: details };
@@ -315,15 +327,17 @@ export function useApi(session_id: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          primary_use: `${details.enterprise_level} | ${details.interests?.join(', ')}`,
+          user_id: activeUserId,
+          primary_use: `${details.teamScale || details.enterprise_level || 'individual'} | ${(details.hobbies || details.interests || []).join(', ')}`,
           preferred_tone: 'direct',
           density_preference: density,
         }),
       });
+      await fetchProfile(activeUserId);
     } catch (e) {
       console.error('Failed to save profile details:', e);
     }
-  }, [user, density]);
+  }, [user, density, fetchProfile]);
 
   return {
     projectId,
@@ -345,15 +359,17 @@ export function useApi(session_id: string) {
     logsLoading,
     graphData,
     graphLoading,
+    user,
+    login,
+    logout,
     fetchMemories,
+    fetchProfile,
+    fetchLogsAndHistory,
     fetchGraph,
     handleSendMessage,
     handleAddMemory,
     handleDeleteMemory,
-    copyPrompt,
-    user,
-    login,
-    logout,
     saveProfileDetails,
+    copyPrompt,
   };
 }

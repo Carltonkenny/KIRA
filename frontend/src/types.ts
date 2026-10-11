@@ -32,6 +32,8 @@ export interface ChatMessage {
   latency_ms?: number;
   created_at?: string;
   suggested_actions?: string[];
+  bypassed?: boolean;
+  bypass_reason?: string;
 }
 
 export interface UserProfile {

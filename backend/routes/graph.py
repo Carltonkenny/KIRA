@@ -6,10 +6,13 @@ from database import db, LOCAL_USER_ID
 router = APIRouter(prefix="/api/v1/graph", tags=["graph"])
 
 
+from typing import Optional
+
 @router.get("")
-async def get_knowledge_graph():
+async def get_knowledge_graph(user_id: Optional[str] = None):
     """Compiles living graph nodes and edges from user memories, history, and MCP traces."""
-    memories = await db.get_memories(LOCAL_USER_ID, project_id="all")
+    target_user = user_id or LOCAL_USER_ID
+    memories = await db.get_memories(target_user, project_id="all")
     mcp_logs = await db.get_mcp_logs(limit=50)
     history = await db.get_all_history(limit=30)
 

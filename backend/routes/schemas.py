@@ -30,6 +30,7 @@ class ProfileRequest(BaseModel):
     primary_use: str = Field("development", description="Core use case profile.")
     preferred_tone: str = Field("direct", description="Tone preference.")
     density_preference: str = Field("short", description="Default density.")
+    user_id: Optional[str] = Field("local_user", description="User ID or authenticated email.")
 
 
 class MCPServerStatus(BaseModel):

@@ -152,7 +152,11 @@ export default function App() {
       <OnboardingModal
         isOpen={isOnboardingModalOpen}
         onClose={() => setIsOnboardingModalOpen(false)}
+        onLogin={api.login}
         onComplete={(data) => {
+          if (data.email) {
+            api.login(data.email);
+          }
           api.saveProfileDetails({
             fullName: data.fullName,
             teamScale: data.enterpriseScale,

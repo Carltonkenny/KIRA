@@ -18,6 +18,7 @@ import { loginWithGoogle } from '../lib/firebase';
 interface OnboardingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onLogin?: (email: string) => Promise<any>;
   onComplete: (data: {
     fullName: string;
     enterpriseScale: string;
@@ -25,6 +26,7 @@ interface OnboardingModalProps {
     hobbies: string[];
     aiFrustration: string;
     choice: 'app' | 'mcp';
+    email?: string;
   }) => void;
   onGoToApp: () => void;
   onGoToMcp: () => void;
@@ -63,11 +65,14 @@ const FRUSTRATIONS = [
 
 export function OnboardingModal({
   isOpen,
+  onClose,
+  onLogin,
   onComplete,
   onGoToApp,
   onGoToMcp,
 }: OnboardingModalProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [userEmail, setUserEmail] = useState<string>('');
   const [fullName, setFullName] = useState('Carlton Kenny');
   const [enterpriseScale, setEnterpriseScale] = useState('startup');
   const [referral, setReferral] = useState('GitHub Repository / Open Source');
@@ -95,6 +100,7 @@ export function OnboardingModal({
       hobbies: selectedHobbies,
       aiFrustration,
       choice,
+      email: userEmail,
     });
     if (choice === 'app') {
       onGoToApp();
@@ -113,7 +119,19 @@ export function OnboardingModal({
               <Sparkles className="w-3.5 h-3.5" />
               KIRA 3.0 · Tailoring Your Cognitive Layer
             </span>
-            <span>Step {step} of 3</span>
+            <div className="flex items-center gap-3">
+              <span>Step {step} of 3</span>
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-text-dim hover:text-white p-1 rounded-lg transition-colors cursor-pointer text-xs"
+                  title="Close modal"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
           <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
             <div
@@ -148,6 +166,10 @@ export function OnboardingModal({
                     onClick={async () => {
                       const gUser = await loginWithGoogle();
                       setFullName(gUser.displayName || 'Carlton Kenny');
+                      if (gUser.email) {
+                        setUserEmail(gUser.email);
+                        if (onLogin) await onLogin(gUser.email);
+                      }
                       setStep(2);
                     }}
                     className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white text-black text-xs font-semibold hover:bg-slate-100 transition-colors shrink-0 shadow-sm cursor-pointer"
