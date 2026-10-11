@@ -9,18 +9,21 @@ class RefineRequest(BaseModel):
     density: str = Field("short", description="Output density: 'short', 'medium', or 'detailed'.")
     session_id: str = Field(..., description="Unique chat session identifier.")
     project_id: Optional[str] = Field("default", description="Project identifier to scope context and memories.")
+    user_id: Optional[str] = Field("local_user", description="User ID or authenticated email.")
 
 
 class ChatRequest(BaseModel):
     message: str = Field(..., description="Conversational feedback text.")
     session_id: str = Field(..., description="Unique chat session identifier.")
     project_id: Optional[str] = Field("default", description="Project identifier.")
+    user_id: Optional[str] = Field("local_user", description="User ID or authenticated email.")
 
 
 class MemoryRequest(BaseModel):
     category: str = Field("custom", description="Memory category: 'tech_stack', 'writing_style', etc.")
     fact: str = Field(..., description="Fact or constraint string to remember.")
     project_id: Optional[str] = Field("default", description="Project identifier.")
+    user_id: Optional[str] = Field("local_user", description="User ID or authenticated email.")
 
 
 class ProfileRequest(BaseModel):

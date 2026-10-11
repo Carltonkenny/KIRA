@@ -1,39 +1,82 @@
 /**
- * Custom hook encapsulating all KIRA API interactions.
+ * Custom hook encapsulating all KIRA API interactions, state management, and authentication.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Memory, Profile, ChatMessage, MCPLog, RefinementHistoryItem } from '../types';
+import type { Memory, Profile, ChatMessage, MCPLog, RefinementHistoryItem, GraphData, AuthUser } from '../types';
 
 const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8090';
 
 export function useApi(session_id: string) {
   // Core states
-  const [rawPrompt, setRawPrompt] = useState('');
-  const [refinedPrompt, setRefinedPrompt] = useState('');
+  const [projectId, setProjectId] = useState<string>('default');
   const [density, setDensity] = useState<'short' | 'medium' | 'detailed'>('short');
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Memory and Profile
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [newFact, setNewFact] = useState('');
-  const [newCategory, setNewCategory] = useState('tech_stack');
+  // Authentication State (Synced with Neon DB)
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('kira_auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Profile and Memory
   const [profile, setProfile] = useState<Profile>({
     primary_use: 'development',
     preferred_tone: 'direct',
     density_preference: 'short',
   });
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('kira_pinned_memories') || '[]');
+    } catch {
+      return [];
+    }
+  });
 
-  // Chat
-  const [chatMessage, setChatMessage] = useState('');
+  // ChatGPT-style Chat history
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [chatLoading, setChatLoading] = useState(false);
+  const [inputMessage, setInputMessage] = useState('');
 
-  // Logs & Metrics
+  // Logs & Sessions History
   const [mcpLogs, setMcpLogs] = useState<MCPLog[]>([]);
   const [historyList, setHistoryList] = useState<RefinementHistoryItem[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+
+  // Graph Data
+  const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
+
+  // --- Auth Handlers ---
+
+  const login = useCallback(async (email: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        const data: AuthUser = await res.json();
+        setUser(data);
+        localStorage.setItem('kira_auth_user', JSON.stringify(data));
+        return data;
+      }
+    } catch (e) {
+      console.error('Login failed:', e);
+    }
+    return null;
+  }, []);
+
+  const logout = useCallback(() => {
+    setUser(null);
+    localStorage.removeItem('kira_auth_user');
+  }, []);
 
   // --- Data Fetchers ---
 
@@ -43,16 +86,20 @@ export function useApi(session_id: string) {
       if (res.ok) {
         const data = await res.json();
         setProfile(data);
-        setDensity(data.density_preference || 'short');
+        if (data.density_preference) setDensity(data.density_preference);
       }
     } catch (e) {
-      console.error('Failed to load profile preferences:', e);
+      console.error('Failed to load profile:', e);
     }
   }, []);
 
-  const fetchMemories = useCallback(async () => {
+  const fetchMemories = useCallback(async (activeProj?: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/memories`);
+      const proj = activeProj !== undefined ? activeProj : projectId;
+      const url = proj && proj !== 'all'
+        ? `${API_BASE}/api/v1/memories?project_id=${encodeURIComponent(proj)}`
+        : `${API_BASE}/api/v1/memories`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setMemories(data);
@@ -60,14 +107,14 @@ export function useApi(session_id: string) {
     } catch (e) {
       console.error('Failed to fetch memories:', e);
     }
-  }, []);
+  }, [projectId]);
 
   const fetchLogsAndHistory = useCallback(async () => {
     setLogsLoading(true);
     try {
       const [logsRes, historyRes] = await Promise.all([
         fetch(`${API_BASE}/api/v1/mcp/logs`),
-        fetch(`${API_BASE}/api/v1/history/all`)
+        fetch(`${API_BASE}/api/v1/history/all`),
       ]);
       if (logsRes.ok) setMcpLogs(await logsRes.json());
       if (historyRes.ok) setHistoryList(await historyRes.json());
@@ -78,135 +125,211 @@ export function useApi(session_id: string) {
     }
   }, []);
 
-  // Initial fetch
+  const fetchGraph = useCallback(async () => {
+    setGraphLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/graph`);
+      if (res.ok) {
+        const data = await res.json();
+        setGraphData(data);
+      }
+    } catch (e) {
+      console.error('Failed to load graph:', e);
+    } finally {
+      setGraphLoading(false);
+    }
+  }, []);
+
+  // Initial load
   useEffect(() => {
     fetchProfile();
     fetchMemories();
-  }, [fetchProfile, fetchMemories]);
+    fetchLogsAndHistory();
+    fetchGraph();
+  }, [fetchProfile, fetchMemories, fetchLogsAndHistory, fetchGraph]);
 
-  // --- Action Handlers ---
+  // Pin / Unpin
+  const togglePinMemory = useCallback((id: string) => {
+    setPinnedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id];
+      localStorage.setItem('kira_pinned_memories', JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
-  const updateProfile = useCallback(async (updated: Partial<Profile>) => {
-    const nextProfile = { ...profile, ...updated };
-    setProfile(nextProfile);
-    try {
-      await fetch(`${API_BASE}/api/v1/profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nextProfile),
-      });
-    } catch (e) {
-      console.error('Failed to save profile changes:', e);
-    }
-  }, [profile]);
+  // Copy prompt helper
+  const copyPrompt = useCallback((id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }, []);
 
-  const handleRefine = useCallback(async () => {
-    if (!rawPrompt.trim()) return;
+  // --- ChatGPT Prompt Submission ---
+
+  const handleSendMessage = useCallback(async (textToSend?: string) => {
+    const rawText = (textToSend !== undefined ? textToSend : inputMessage).trim();
+    if (!rawText || loading) return;
+
+    setInputMessage('');
     setLoading(true);
+
+    const userMsgId = `usr-${Date.now()}`;
+    const userTurn: ChatMessage = {
+      id: userMsgId,
+      role: 'user',
+      message: rawText,
+      created_at: new Date().toLocaleTimeString(),
+    };
+
+    setChatHistory((prev) => [...prev, userTurn]);
+    const startTime = performance.now();
+
     try {
+      const activeUserId = user?.user_id || 'local_user';
       const res = await fetch(`${API_BASE}/api/v1/refine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: rawPrompt, density, session_id }),
+        body: JSON.stringify({
+          prompt: rawText,
+          density,
+          session_id,
+          project_id: projectId,
+          user_id: activeUserId,
+        }),
       });
+
+      const latencyMs = Math.round(performance.now() - startTime);
+
       if (res.ok) {
         const data = await res.json();
-        setRefinedPrompt(data.refined_prompt);
-        fetchMemories();
-        setChatHistory([
-          { id: 'init-usr', role: 'user', message: rawPrompt },
-          {
-            id: 'init-ast', role: 'assistant',
-            message: `Initiated prompt refinement. Intent: ${data.intent}. Domain: ${data.domain}.`,
-            refined_prompt: data.refined_prompt,
+
+        let explanation = '';
+        if (data.intent === 'conversational') {
+          explanation = data.refined_prompt;
+        } else if (data.intent === 'pass_through') {
+          explanation = data.refined_prompt;
+        } else {
+          explanation = `I analyzed your prompt and engineered a grounded production-grade instruction set.`;
+          if (data.domain) {
+            explanation += ` Domain identified as **${data.domain.replace('_', ' ')}**.`;
           }
-        ]);
+          if (data.new_memories && data.new_memories.length > 0) {
+            explanation += ` Auto-extracted verified facts: *${data.new_memories.join(', ')}*.`;
+          }
+        }
+
+        const astTurn: ChatMessage = {
+          id: `ast-${Date.now()}`,
+          role: 'assistant',
+          message: explanation,
+          refined_prompt: data.refined_prompt,
+          intent: data.intent,
+          domain: data.domain,
+          new_memories: data.new_memories,
+          quality_scores: data.quality_scores,
+          suggested_actions: data.suggested_actions,
+          latency_ms: latencyMs,
+          created_at: new Date().toLocaleTimeString(),
+        };
+
+        setChatHistory((prev) => [...prev, astTurn]);
+
+        // Refresh memories and history in background
+        fetchMemories();
+        fetchLogsAndHistory();
+        fetchGraph();
+      } else {
+        const errorTurn: ChatMessage = {
+          id: `ast-${Date.now()}`,
+          role: 'assistant',
+          message: 'Error communicating with KIRA backend. Please check server connection.',
+          created_at: new Date().toLocaleTimeString(),
+        };
+        setChatHistory((prev) => [...prev, errorTurn]);
       }
-    } catch (e) {
-      console.error('Prompt refinement request failed:', e);
-      setRefinedPrompt('### Error\nFailed to reach KIRA Backend API. Please ensure FastAPI is running on port 8090.');
+    } catch (err: any) {
+      console.error('Refine failed:', err);
+      const errorTurn: ChatMessage = {
+        id: `ast-${Date.now()}`,
+        role: 'assistant',
+        message: `Network error: ${err.message || 'Failed to reach API at :8090'}`,
+        created_at: new Date().toLocaleTimeString(),
+      };
+      setChatHistory((prev) => [...prev, errorTurn]);
     } finally {
       setLoading(false);
     }
-  }, [rawPrompt, density, session_id, fetchMemories]);
+  }, [inputMessage, loading, density, session_id, projectId, user, fetchMemories, fetchLogsAndHistory, fetchGraph]);
 
-  const handleSendChat = useCallback(async () => {
-    if (!chatMessage.trim() || chatLoading) return;
-    const userMsg = chatMessage;
-    setChatMessage('');
-    setChatLoading(true);
-
-    const userTurn: ChatMessage = { id: `usr-${Date.now()}`, role: 'user', message: userMsg };
-    setChatHistory(prev => [...prev, userTurn]);
-
+  // Add manual memory
+  const handleAddMemory = useCallback(async (fact: string, category: string = 'tech_stack', project: string = 'default') => {
+    if (!fact.trim()) return false;
     try {
-      const res = await fetch(`${API_BASE}/api/v1/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, session_id }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setChatHistory(prev => [...prev, {
-          id: `ast-${Date.now()}`, role: 'assistant',
-          message: data.response, refined_prompt: data.refined_prompt
-        }]);
-        setRefinedPrompt(data.refined_prompt);
-      }
-    } catch (e) {
-      console.error('Conversational follow-up failed:', e);
-    } finally {
-      setChatLoading(false);
-    }
-  }, [chatMessage, chatLoading, session_id]);
-
-  const handleAddMemory = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFact.trim()) return;
-    try {
+      const activeUserId = user?.user_id || 'local_user';
       const res = await fetch(`${API_BASE}/api/v1/memories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: newCategory, fact: newFact }),
+        body: JSON.stringify({ fact, category, project_id: project, user_id: activeUserId }),
       });
       if (res.ok) {
-        setNewFact('');
-        fetchMemories();
+        await fetchMemories();
+        await fetchGraph();
+        return true;
       }
     } catch (e) {
-      console.error('Failed to add memory fact:', e);
+      console.error('Failed to add memory:', e);
     }
-  }, [newFact, newCategory, fetchMemories]);
+    return false;
+  }, [user, fetchMemories, fetchGraph]);
 
+  // Delete memory
   const handleDeleteMemory = useCallback(async (id: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/memories/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchMemories();
+      if (res.ok) {
+        setMemories((prev) => prev.filter((m) => m.id !== id));
+        setPinnedIds((prev) => {
+          const next = prev.filter((p) => p !== id);
+          localStorage.setItem('kira_pinned_memories', JSON.stringify(next));
+          return next;
+        });
+        await fetchGraph();
+        return true;
+      }
     } catch (e) {
-      console.error('Failed to delete memory fact:', e);
+      console.error('Failed to delete memory:', e);
     }
-  }, [fetchMemories]);
-
-  const copyToClipboard = useCallback(() => {
-    if (!refinedPrompt) return;
-    navigator.clipboard.writeText(refinedPrompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [refinedPrompt]);
+    return false;
+  }, [fetchGraph]);
 
   return {
-    // State
-    rawPrompt, setRawPrompt,
-    refinedPrompt,
-    density, setDensity,
-    loading, copied,
-    memories, newFact, setNewFact, newCategory, setNewCategory,
+    projectId,
+    setProjectId,
+    density,
+    setDensity,
+    loading,
+    copiedId,
     profile,
-    chatMessage, setChatMessage, chatHistory, chatLoading,
-    mcpLogs, historyList, logsLoading,
-    // Actions
-    updateProfile, handleRefine, handleSendChat,
-    handleAddMemory, handleDeleteMemory, copyToClipboard,
-    fetchLogsAndHistory,
+    memories,
+    pinnedIds,
+    togglePinMemory,
+    chatHistory,
+    setChatHistory,
+    inputMessage,
+    setInputMessage,
+    mcpLogs,
+    historyList,
+    logsLoading,
+    graphData,
+    graphLoading,
+    fetchMemories,
+    fetchGraph,
+    handleSendMessage,
+    handleAddMemory,
+    handleDeleteMemory,
+    copyPrompt,
+    user,
+    login,
+    logout,
   };
 }

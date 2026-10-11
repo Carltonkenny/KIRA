@@ -6,6 +6,7 @@ from database import DatabaseManager
 @pytest.fixture
 def mock_db_manager():
     manager = DatabaseManager()
+    manager.mode = "local"
     manager._execute_sqlite = MagicMock()
     return manager
 
@@ -73,5 +74,5 @@ async def test_project_memory_scoping(mock_db_manager):
     assert len(mems) == 2
     mock_db_manager._execute_sqlite.assert_called_once()
     args = mock_db_manager._execute_sqlite.call_args[0]
-    assert "project_id = ?" in args[0]
+    assert "project_id = $2" in args[0] or "project_id = ?" in args[0]
     assert args[1] == ("test_user", "react-app")

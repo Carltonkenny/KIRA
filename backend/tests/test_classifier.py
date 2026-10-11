@@ -6,54 +6,51 @@ def test_bypass_prefix():
     assert res["action"] == "pass_through"
     assert "Bypassed via user prefix" in res["reason"]
 
-def test_too_short():
-    res = classify("git push")
+def test_shell_commands():
+    res = classify("npm install express mongoose dotenv")
     assert res["action"] == "pass_through"
-    assert "too short" in res["reason"]
+    assert "Direct shell command" in res["reason"]
     
-    res = classify("build it")
+    res = classify("git commit -m 'initial commit'")
     assert res["action"] == "pass_through"
+    assert "Direct shell command" in res["reason"]
 
 def test_conversational_confirmations():
     for word in ["yes", "no", "ok", "sure", "continue", "proceed", "ack", "y", "n"]:
         res = classify(word)
         assert res["action"] == "pass_through"
-        assert "confirmation" in res["reason"]
+        assert "acknowledgment" in res["reason"].lower()
 
-def test_shell_commands():
-    res = classify("npm install express mongoose dotenv")
-    assert res["action"] == "pass_through"
-    assert "shell command" in res["reason"]
-    
-    res = classify("git commit -m 'initial commit'")
-    assert res["action"] == "pass_through"
+def test_conversational_greetings():
+    for word in ["hello", "hi", "hey kira"]:
+        res = classify(word)
+        assert res["action"] == "conversational"
+        assert res["intent"] == "greeting"
 
-def test_too_long():
-    long_prompt = "word " * 205
-    res = classify(long_prompt)
-    assert res["action"] == "pass_through"
-    assert "already highly detailed" in res["reason"]
+def test_kira_meta_questions():
+    res = classify("what is kira and how do you work?")
+    assert res["action"] == "conversational"
+    assert res["intent"] == "about_kira"
 
-def test_short_targeted_filepath():
-    res = classify("fix the bug in server.py")
+def test_pinpoint_code_edit():
+    res = classify("fix typo on line 42 in server.py")
     assert res["action"] == "pass_through"
-    assert "short targeted instruction" in res["reason"].lower()
-
-def test_short_targeted_line():
-    res = classify("fix error on line 42")
-    assert res["action"] == "pass_through"
-    assert "short targeted instruction" in res["reason"].lower()
+    assert res["intent"] == "pinpoint_edit"
 
 def test_code_block():
     res = classify("Here is code: ```python\nprint('hello')\n```")
     assert res["action"] == "pass_through"
-    assert "markdown code blocks" in res["reason"]
+    assert "code block" in res["reason"].lower()
 
 def test_code_density():
-    res = classify("x = y + z; if (x > y) { return x; } else { return y; }")
+    res = classify("fn(x) => { return [x+1, y-2, z*3] >= 0; };")
     assert res["action"] == "pass_through"
-    assert "High code symbol density" in res["reason"]
+    assert res["intent"] == "code_snippet"
 
 def test_enhance_complex_prompt():
     res = classify("build a dashboard component in react using tailwind and fetch from api")
+    assert res["action"] == "enhance"
+
+def test_enhance_short_technical_prompt():
+    res = classify("add oauth authentication with google")
     assert res["action"] == "enhance"

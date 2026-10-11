@@ -20,9 +20,9 @@ def test_build_system_instructions_medium():
     sys_prompt = build_system_instructions(profile, memories, density="medium")
     
     assert "polite" in sys_prompt
-    assert "No memories recorded yet." in sys_prompt
+    assert "No pre-existing memories" in sys_prompt
     assert "DENSITY BUDGET: 'medium'" in sys_prompt
-    assert "RPG (Role, Problem, Guidance)" in sys_prompt
+    assert "Functional Requirements" in sys_prompt
 
 def test_refiner_response_schema():
     # Validates our Pydantic response parsing contract

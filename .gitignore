@@ -9,7 +9,6 @@ backend/.env
 .env.local
 .env.*.local
 .pytest_cache/
-.vscode/
 
 # Database — never commit local DB files
 *.db
@@ -21,13 +20,25 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+.tsbuildinfo
+*.tsbuildinfo
 
 # System / IDE
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+
+# Agent / IDE tooling (local-only)
 .kilo/
 graphify-out/
-
-# Agent configs — these should never be auto-committed
 .agents/
 mcp_config.json
+.playwright-mcp/
+
+# Temporary test dumps & scratch
+*.log
+scratch_*.json
+benchmark_full_data.json
+stress_test_report.json
+memory_wiring_result.json

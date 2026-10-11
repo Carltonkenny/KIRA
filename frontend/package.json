@@ -1,7 +1,8 @@
 {
-  "name": "frontend",
+  "name": "promptforge-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "3.0.0",
+  "description": "PromptForge / KIRA — Prompt intelligence console with persistent memory and MCP integration",
   "type": "module",
   "scripts": {
     "dev": "vite",

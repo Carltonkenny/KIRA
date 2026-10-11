@@ -11,6 +11,8 @@ from routes.refine import router as refine_router
 from routes.memories import router as memories_router
 from routes.profile import router as profile_router
 from routes.mcp import router as mcp_router
+from routes.graph import router as graph_router
+from routes.auth import router as auth_router
 
 logger = logging.getLogger("kira.main")
 
@@ -50,6 +52,8 @@ app.include_router(refine_router)
 app.include_router(memories_router)
 app.include_router(profile_router)
 app.include_router(mcp_router)
+app.include_router(graph_router)
+app.include_router(auth_router)
 
 
 @app.get("/health")

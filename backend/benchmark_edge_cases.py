@@ -144,8 +144,8 @@ async def run_benchmark():
     total_count = len(results)
 
     for r in results:
-        status_icon = "✓" if r["passed"] else "✗"
-        print(f"  [{status_icon}] {r['case']:42s} | {r['detail']}")
+        status_icon = "PASS" if r["passed"] else "FAIL"
+        print(f"  [{status_icon:4s}] {r['case']:42s} | {r['detail']}")
 
     print("=" * 80)
     print(f"FINAL RATING: {passed_count}/{total_count} Passed ({(passed_count/total_count)*100:.1f}%)")
