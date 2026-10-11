@@ -15,6 +15,7 @@ import { GraphTab } from './components/GraphTab';
 import { McpModal } from './components/McpModal';
 import { AuthModal } from './components/AuthModal';
 import { ProfileModal } from './components/ProfileModal';
+import { OnboardingModal } from './components/OnboardingModal';
 import { LandingPage } from './components/LandingPage';
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
   const [isMcpModalOpen, setIsMcpModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
 
   const api = useApi(session_id);
 
@@ -52,10 +54,7 @@ export default function App() {
       {viewMode === 'landing' ? (
         <LandingPage
           onLaunchApp={() => setViewMode('app')}
-          onOpenAuth={() => {
-            setViewMode('app');
-            setIsAuthModalOpen(true);
-          }}
+          onOpenAuth={() => setIsOnboardingModalOpen(true)}
           onOpenMcp={() => setIsMcpModalOpen(true)}
         />
       ) : (
@@ -145,7 +144,30 @@ export default function App() {
           setIsProfileModalOpen(false);
         }}
         onGoToMcp={() => {
-          setIsProfileModalOpen(true);
+          setIsProfileModalOpen(false);
+          setIsMcpModalOpen(true);
+        }}
+      />
+
+      <OnboardingModal
+        isOpen={isOnboardingModalOpen}
+        onClose={() => setIsOnboardingModalOpen(false)}
+        onComplete={(data) => {
+          api.saveProfileDetails({
+            fullName: data.fullName,
+            teamScale: data.enterpriseScale,
+            referralSource: data.referral,
+            hobbies: data.hobbies,
+          });
+          setIsOnboardingModalOpen(false);
+        }}
+        onGoToApp={() => {
+          setViewMode('app');
+          setIsOnboardingModalOpen(false);
+        }}
+        onGoToMcp={() => {
+          setIsOnboardingModalOpen(false);
+          setIsMcpModalOpen(true);
         }}
       />
     </div>
