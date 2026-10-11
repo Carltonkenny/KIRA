@@ -5,7 +5,12 @@
 import { useState, useEffect } from 'react';
 import type { MCPServer } from '../types';
 
-const API_BASE = 'http://localhost:8090';
+const API_BASE = (import.meta as any).env?.VITE_API_BASE || '';
+const WS_URL = API_BASE
+  ? `${API_BASE.replace(/^http/, 'ws')}/api/v1/mcp/status/ws`
+  : (typeof window !== 'undefined'
+      ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/mcp/status/ws`
+      : '');
 
 export function useMcpStatus() {
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
@@ -33,8 +38,12 @@ export function useMcpStatus() {
     };
 
     const connectWebSocket = () => {
+      if (!WS_URL) {
+        startPolling();
+        return;
+      }
       try {
-        socket = new WebSocket('ws://localhost:8090/api/v1/mcp/status/ws');
+        socket = new WebSocket(WS_URL);
 
         socket.onmessage = (event) => {
           if (!isMounted) return;

@@ -252,7 +252,7 @@ export function useApi(session_id: string) {
       const errorTurn: ChatMessage = {
         id: `ast-${Date.now()}`,
         role: 'assistant',
-        message: `Network error: ${err.message || 'Failed to reach API at :8090'}`,
+        message: `Network error: ${err.message || 'Failed to reach KIRA Cloud Engine'}`,
         created_at: new Date().toLocaleTimeString(),
       };
       setChatHistory((prev) => [...prev, errorTurn]);
