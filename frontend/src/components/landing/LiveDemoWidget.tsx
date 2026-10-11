@@ -65,8 +65,9 @@ export function LiveDemoWidget({ onStartFree, onSignIn }: LiveDemoWidgetProps) {
     const startTime = performance.now();
 
     try {
-      // Connect to live backend on port 8090
-      const resp = await fetch('http://localhost:8090/api/v1/refine', {
+      // Connect to live backend
+      const apiBase = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8090' : 'https://kira-9psf.onrender.com');
+      const resp = await fetch(`${apiBase}/api/v1/refine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

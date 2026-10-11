@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Memory, Profile, ChatMessage, MCPLog, RefinementHistoryItem, GraphData, AuthUser } from '../types';
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8090';
+const API_BASE = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8090' : 'https://kira-9psf.onrender.com');
 
 export function useApi(session_id: string) {
   // Core states
