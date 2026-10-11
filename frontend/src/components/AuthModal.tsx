@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Check, X, ArrowRight, Shield, Database, ExternalLink, User, Sparkles } from 'lucide-react';
+import { loginWithGoogle } from '../lib/firebase';
 import type { AuthUser } from '../types';
 
 interface AuthModalProps {
@@ -169,16 +170,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="btn-auth-google"
                     onClick={async () => {
                       setIsSubmitting(true);
-                      const googleEmail = 'carlton.kenny@gmail.com';
-                      setEmail(googleEmail);
-                      const authData = await onLogin(googleEmail);
-                      setIsSubmitting(false);
-                      if (authData) {
-                        setMessage(`Authenticated with Google: ${googleEmail}`);
-                        setTimeout(() => {
-                          onClose();
-                          setMessage(null);
-                        }, 700);
+                      try {
+                        const gUser = await loginWithGoogle();
+                        setEmail(gUser.email);
+                        const authData = await onLogin(gUser.email);
+                        if (authData) {
+                          setMessage(`Authenticated via Google: ${gUser.email}`);
+                          setTimeout(() => {
+                            onClose();
+                            setMessage(null);
+                          }, 700);
+                        }
+                      } finally {
+                        setIsSubmitting(false);
                       }
                     }}
                     disabled={isSubmitting}

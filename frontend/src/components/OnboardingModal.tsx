@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Check,
 } from 'lucide-react';
+import { loginWithGoogle } from '../lib/firebase';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -144,11 +145,12 @@ export function OnboardingModal({
                   </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      setFullName('Carlton Kenny');
+                    onClick={async () => {
+                      const gUser = await loginWithGoogle();
+                      setFullName(gUser.displayName || 'Carlton Kenny');
                       setStep(2);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-black text-xs font-semibold hover:bg-slate-100 transition-colors shrink-0 shadow-sm"
+                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white text-black text-xs font-semibold hover:bg-slate-100 transition-colors shrink-0 shadow-sm cursor-pointer"
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24">
                       <path

@@ -68,7 +68,7 @@ export function HeroSection({ onStartFree, onSignIn }: HeroSectionProps) {
         </div>
 
         {/* Stats bar */}
-        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10 mb-16 animate-fade-in-up animate-stagger-4">
+        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10 mb-8 animate-fade-in-up animate-stagger-4">
           {HERO_STATS.map((stat, i) => (
             <div key={i} className="flex items-center gap-3">
               {i > 0 && <span className="hidden md:block w-px h-8 bg-border-default" />}
@@ -82,6 +82,26 @@ export function HeroSection({ onStartFree, onSignIn }: HeroSectionProps) {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Floating Developer Stack Badges */}
+        <div className="flex flex-wrap items-center justify-center gap-2.5 mb-14 animate-fade-in-up animate-stagger-4">
+          <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-text-dim flex items-center gap-1.5 hover:border-kira/40 hover:text-white transition-colors">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            FastMCP 2026 Ready
+          </span>
+          <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-text-dim flex items-center gap-1.5 hover:border-kira/40 hover:text-white transition-colors">
+            <span className="w-1.5 h-1.5 rounded-full bg-kira animate-pulse" />
+            Groq LPU (0.42s latency)
+          </span>
+          <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-text-dim flex items-center gap-1.5 hover:border-kira/40 hover:text-white transition-colors">
+            <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
+            Neon Serverless pgvector
+          </span>
+          <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-text-dim flex items-center gap-1.5 hover:border-kira/40 hover:text-white transition-colors">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            Cloud HTTPS SSE
+          </span>
         </div>
 
         {/* Live Demo Widget */}

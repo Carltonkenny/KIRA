@@ -1,4 +1,6 @@
 // frontend/src/components/landing/IntegrationsSection.tsx
+import { useState } from 'react';
+
 const INTEGRATIONS = [
   { name: 'Cursor', desc: 'IDE native support via MCP layer.', icon: '⚡', gridClass: 'md:col-start-1 md:row-start-1' },
   { name: 'GitHub Copilot', desc: 'Injected context for Copilot Chat.', icon: '🐙', gridClass: 'md:col-start-3 md:row-start-1' },
@@ -8,11 +10,38 @@ const INTEGRATIONS = [
   { name: 'OpenCode IDE', desc: 'Open source local architecture.', icon: '💻', gridClass: 'md:col-start-3 md:row-start-3' },
 ];
 
+const AGENT_RULES = {
+  claude: {
+    title: 'Claude Code',
+    filename: 'CLAUDE.md',
+    directive: `# CLAUDE.md — KIRA Intelligence Integration Rule\nYou are connected to the KIRA Prompt Enhancement & Context Engine.\n\n## Pre-Flight Prompt Interception Rule\n1. Before fulfilling any engineering user request, invoke the KIRA tool \`kira_enhance\` with the user's prompt.\n2. Use the exact structured specification returned by KIRA to generate your code.`,
+  },
+  antigravity: {
+    title: 'Google Antigravity',
+    filename: '.agents/AGENTS.md',
+    directive: `# .agents/AGENTS.md — KIRA Integration Rules\nYou are connected to the KIRA Prompt Enhancement MCP Server.\n\n## Prompt Interception Rule\n1. Before answering any engineering request, invoke the KIRA tool \`kira_enhance\` with:\n   - \`prompt\`: Raw user input\n   - \`agent_name\`: "antigravity"\n   - \`session_id\`: Active conversation ID\n2. Use the exact structured specification returned by \`kira_enhance\` to generate your code.`,
+  },
+  cursor: {
+    title: 'Cursor IDE',
+    filename: '.cursorrules',
+    directive: `# .cursorrules — KIRA Prompt Intelligence Directive\nConnect to KIRA MCP (https://api.promptforge.ai/mcp/sse).\nAlways execute \`kira_enhance\` to fetch verified architectural constraints and active project memory before generating boilerplate code.`,
+  },
+};
+
 interface IntegrationsSectionProps {
   onOpenMcp?: () => void;
 }
 
 export function IntegrationsSection({ onOpenMcp }: IntegrationsSectionProps) {
+  const [selectedAgent, setSelectedAgent] = useState<'claude' | 'antigravity' | 'cursor'>('claude');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyRule = () => {
+    navigator.clipboard.writeText(AGENT_RULES[selectedAgent].directive);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <section id="integrations" className="py-24 md:py-32 px-5 md:px-12 relative overflow-hidden">
       {/* Background glow */}
@@ -28,12 +57,12 @@ export function IntegrationsSection({ onOpenMcp }: IntegrationsSectionProps) {
             Works where you work.
           </h2>
           <p className="text-[15px] md:text-[17px] text-text-dim max-w-xl mx-auto">
-            PromptForge isn&apos;t just a dashboard. It acts as an underlying Model Context Protocol (MCP) server, injecting stateful memory directly into your favorite tools.
+            PromptForge acts as an underlying Model Context Protocol (MCP) server, injecting stateful memory and zero-hallucination constraints directly into your favorite coding agents.
           </p>
         </div>
 
         {/* Node Graph Layout */}
-        <div className="relative max-w-5xl mx-auto">
+        <div className="relative max-w-5xl mx-auto mb-16">
           {/* Animated SVG Connections (Desktop Only) */}
           <div className="hidden md:block absolute inset-0 pointer-events-none z-0">
             <svg className="w-full h-full" preserveAspectRatio="none">
@@ -54,7 +83,7 @@ export function IntegrationsSection({ onOpenMcp }: IntegrationsSectionProps) {
           </div>
 
           {/* Grid Layout */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-x-12 md:gap-y-16 relative z-10 w-full min-h-[560px] items-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-x-12 md:gap-y-16 relative z-10 w-full min-h-[500px] items-center">
             {/* Center Node */}
             <div
               onClick={onOpenMcp}
@@ -89,6 +118,64 @@ export function IntegrationsSection({ onOpenMcp }: IntegrationsSectionProps) {
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* High-Leverage: 1-Click Agent Directives Box */}
+        <div className="max-w-3xl mx-auto rounded-xl bg-layer2/90 border border-white/10 p-6 backdrop-blur-md shadow-2xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <h4 className="text-sm font-semibold text-text-bright">
+                  1-Click Agent Integration Directives
+                </h4>
+              </div>
+              <p className="text-xs text-text-dim font-mono mt-0.5">
+                Drop this rule in your repo. Your agent auto-connects to KIRA memory before writing code.
+              </p>
+            </div>
+
+            {/* Agent Selector Pills */}
+            <div className="flex items-center bg-black/40 p-1 rounded-lg border border-white/10">
+              {(['claude', 'antigravity', 'cursor'] as const).map((agentKey) => (
+                <button
+                  key={agentKey}
+                  type="button"
+                  onClick={() => setSelectedAgent(agentKey)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all ${
+                    selectedAgent === agentKey
+                      ? 'bg-kira text-white font-semibold shadow-sm'
+                      : 'text-text-dim hover:text-white'
+                  }`}
+                >
+                  {AGENT_RULES[agentKey].title}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Rule Code Preview */}
+          <div className="relative">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-black/60 rounded-t-lg border border-white/5 border-b-0">
+              <span className="text-[11px] font-mono text-kira font-bold">
+                {AGENT_RULES[selectedAgent].filename}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyRule}
+                className="text-[11px] font-mono flex items-center gap-1.5 text-text-dim hover:text-white transition-colors"
+              >
+                {copied ? (
+                  <span className="text-emerald-400 font-bold">✓ Copied to clipboard!</span>
+                ) : (
+                  <span>📋 Copy Directive</span>
+                )}
+              </button>
+            </div>
+            <pre className="p-3.5 bg-black/40 rounded-b-lg border border-white/5 text-[11px] font-mono text-text-muted overflow-x-auto whitespace-pre leading-relaxed">
+              {AGENT_RULES[selectedAgent].directive}
+            </pre>
           </div>
         </div>
       </div>
