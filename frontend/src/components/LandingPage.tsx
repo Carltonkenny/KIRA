@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Sparkles,
   ArrowRight,
-  Zap,
   Check,
   ChevronDown,
 } from 'lucide-react';
@@ -123,28 +122,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="landing-hero-content">
           <div className="landing-pill-tag">
             <Sparkles size={12} className="tag-sparkle" />
-            <span>THE PROMPT INTELLIGENCE LAYER FOR SERIOUS BUILDERS</span>
+            <span>// the prompt intelligence layer</span>
           </div>
 
           <h1 className="landing-hero-title">
             Your prompts, <br />
-            <span className="gradient-text-hero">precisely engineered.</span>
+            <span className="gradient-text-hero">precisely</span> engineered.
           </h1>
 
           <p className="landing-hero-subtitle">
-            KIRA learns how you think. Every session recalls your persistent project context,
-            eliminates framework hallucinations, and generates production-ready execution blueprints.
+            Kira learns how you think. Every session, your prompts get sharper.
           </p>
 
           <div className="landing-hero-cta-group">
-            <button className="landing-btn-cta-primary" onClick={onLaunchApp}>
-              <span>Open KIRA Console</span>
+            <button className="landing-btn-cta-primary" onClick={onOpenAuth}>
+              <span>Start for free</span>
               <ArrowRight size={16} />
             </button>
-            <button className="landing-btn-cta-secondary" onClick={onOpenMcp}>
-              <Zap size={15} />
-              <span>Connect MCP in IDE</span>
-            </button>
+            <a href="#live-demo" className="landing-btn-cta-secondary" style={{ textDecoration: 'none' }}>
+              <span>Watch it work ↓</span>
+            </a>
           </div>
 
           {/* Quick Metrics */}
@@ -156,12 +153,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="metric-divider"></div>
             <div className="metric-box">
               <span className="metric-val">0.49s</span>
-              <span className="metric-lbl">Inference Latency (Groq)</span>
+              <span className="metric-lbl">Avg Response Time (Groq)</span>
             </div>
             <div className="metric-divider"></div>
             <div className="metric-box">
-              <span className="metric-val">100%</span>
-              <span className="metric-lbl">Zero-Amnesia Memory Sync</span>
+              <span className="metric-val">99.9%</span>
+              <span className="metric-lbl">Uptime & Cloud Sync</span>
             </div>
           </div>
 
@@ -219,11 +216,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Meet Kira: Zero-Shot Amnesia Elimination Section */}
       <section id="memory-matrix" className="landing-feature-section">
         <div className="landing-section-header">
-          <span className="landing-section-badge">// 01 PERSISTENT MEMORY</span>
+          <span className="landing-section-badge">// 02 Meet Kira</span>
           <h2 className="landing-section-title">Not a chatbot. A collaborator that learns your base.</h2>
           <p className="landing-section-desc">
-            KIRA inspects your project knowledge base before every prompt turn. Watch how the engine
-            adapts from a cold start to a fully tuned architectural partner.
+            She reads your profile before every response. Click the timeline or let it play to watch her rewrite responses based on memory.
           </p>
         </div>
 
@@ -234,21 +230,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               onClick={() => setActiveSessionStage('cold')}
             >
               <span className="stage-num">SESSION 01</span>
-              <span className="stage-name">Cold Start</span>
+              <span className="stage-name">Cold</span>
             </button>
             <button
               className={`evolution-tab ${activeSessionStage === 'warm' ? 'active' : ''}`}
               onClick={() => setActiveSessionStage('warm')}
             >
-              <span className="stage-num">SESSION 12</span>
-              <span className="stage-name">Warm Context</span>
+              <span className="stage-num">SESSION 18</span>
+              <span className="stage-name">Warm</span>
             </button>
             <button
               className={`evolution-tab ${activeSessionStage === 'tuned' ? 'active' : ''}`}
               onClick={() => setActiveSessionStage('tuned')}
             >
-              <span className="stage-num">SESSION 48</span>
-              <span className="stage-name">Tuned Expert</span>
+              <span className="stage-num">SESSION 54</span>
+              <span className="stage-name">Tuned</span>
             </button>
           </div>
 
