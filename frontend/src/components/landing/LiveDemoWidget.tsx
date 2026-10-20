@@ -66,7 +66,7 @@ export function LiveDemoWidget({ onStartFree, onSignIn }: LiveDemoWidgetProps) {
 
     try {
       // Connect to live backend
-      const apiBase = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8090' : 'https://kira-9psf.onrender.com');
+      const apiBase = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8090' : 'https://kira-l18t.onrender.com');
       const resp = await fetch(`${apiBase}/api/v1/refine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
