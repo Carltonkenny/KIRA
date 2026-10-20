@@ -244,6 +244,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 className="scope-inline-dropdown"
               >
                 <option value="default">Scope: default</option>
+                <option value="ecommerce-api">Scope: ecommerce-api</option>
                 <option value="shop-frontend">Scope: shop-frontend</option>
                 <option value="go-payments-backend">Scope: go-payments-backend</option>
                 <option value="all">Scope: all projects</option>

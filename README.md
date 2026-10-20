@@ -1,45 +1,60 @@
 <div align="center">
 
-# ⚡ KIRA (PromptForge)
-### *The Autonomous Prompt Intelligence & Persistent Memory Layer for AI Coding Agents*
+# ⚡ KIRA
+
+### *Autonomous Prompt Intelligence & Persistent Memory Layer for AI Coding Agents*
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React 19](https://img.shields.io/badge/React_19-Vite_8-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![FastMCP](https://img.shields.io/badge/FastMCP-2026_Standard-6366F1?style=for-the-badge&logo=anthropic&logoColor=white)](https://modelcontextprotocol.io)
-[![Groq LPU](https://img.shields.io/badge/Groq_LPU-0.42s_Latency-F55036?style=for-the-badge&logo=speedtest&logoColor=white)](https://groq.com)
-[![Neon pgvector](https://img.shields.io/badge/Neon-Serverless_PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=black)](https://neon.tech)
-[![Firebase Auth](https://img.shields.io/badge/Firebase-Google_OAuth_2.0-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com)
+[![Groq LPU](https://img.shields.io/badge/Groq_LPU-Sub_500ms-F55036?style=for-the-badge&logo=speedtest&logoColor=white)](https://groq.com)
+[![Neon](https://img.shields.io/badge/Neon-Serverless_pgvector-00E599?style=for-the-badge&logo=postgresql&logoColor=black)](https://neon.tech)
+[![Firebase](https://img.shields.io/badge/Firebase-Google_OAuth-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-<p align="center">
-  <b>Eliminate zero-shot amnesia.</b> KIRA intercepts vague engineering prompts, enriches them with persistent project memory, and injects zero-hallucination architectural constraints before code is generated.
-</p>
+<br/>
 
-<p align="center">
-  <a href="#-quick-tour--features">Explore Features</a> •
-  <a href="#-architecture--the-4-agent-orchestrator">Architecture</a> •
-  <a href="#-1-click-agent-integration-mcp">Connect IDEs (MCP)</a> •
-  <a href="#-step-by-step-deployment-guide">Deploy to Cloud</a> •
-  <a href="#-local-development">Run Locally</a>
-</p>
+**Modern AI coding agents start every request from absolute zero.**<br/>
+They forget your schemas. They repeat deprecated patterns. They hallucinate libraries.
+
+**KIRA fixes this.**
+
+<br/>
+
+[🚀 Live Demo](https://knowledgeable-interface-for-refinem.vercel.app/) •
+[📖 Documentation](#-local-development) •
+[🔌 Connect Your IDE](#-1-click-ide-integration-mcp) •
+[☁️ Deploy](#-cloud-deployment)
+
+<br/>
 
 ---
 
 </div>
 
-## 📌 Executive Summary
+## 🧠 What is KIRA?
 
-Modern AI coding agents (Claude Code, Cursor IDE, Google Antigravity, GitHub Copilot) start from **absolute zero** on every request. They forget your database schemas, repeat deprecated patterns, and invent non-existent libraries.
+KIRA is an **intelligent proxy and persistent memory kernel** that sits between you and your AI coding agent. It intercepts vague prompts, enriches them with project-specific context from persistent memory, and outputs strict production-grade specifications — all in under 500ms.
 
-**KIRA acts as an intelligent proxy and persistent memory kernel**:
-- 🧠 **Persistent Semantic Memory**: Remembers your stack, conventions, and negative constraints across sessions using **Neon pgvector**.
-- ⚡ **Sub-Second Synthesizer**: 4 parallel specialist agents refine vague prompts into strict production specifications in **~420ms** via **Groq LPUs**.
-- 🔌 **Universal Model Context Protocol (MCP)**: Native stdio and cloud HTTPS SSE support for Claude Code, Antigravity, and Cursor.
-- 🛡️ **Zero-Hallucination Guardrails**: Injects type boundaries, error-recovery contracts, and negative constraints (*"Do NOT use unverified ORMs"*).
+<table>
+  <tr>
+    <td width="50%">
+      <h3>❌ Without KIRA</h3>
+      <pre>"build a stripe webhook handler"</pre>
+      <p>→ Generic code. Wrong framework. Invented ORM. Missing error handling. No idempotency. <strong>Hallucinated imports.</strong></p>
+    </td>
+    <td width="50%">
+      <h3>✅ With KIRA (Session 48)</h3>
+      <pre>"build a stripe webhook handler"</pre>
+      <p>→ FastAPI 0.115 + SQLAlchemy 2.0 asyncpg + Pydantic v2 + Stripe webhook signature verification + idempotency record lookup. <strong>Zero hallucination.</strong></p>
+    </td>
+  </tr>
+</table>
 
 ---
 
-## 🚀 Quick Tour & Features
+## ✨ Core Features
 
 <table>
   <tr>
@@ -50,24 +65,24 @@ Modern AI coding agents (Claude Code, Cursor IDE, Google Antigravity, GitHub Cop
         <li><b>Intent Agent:</b> Extracts core technical objective & scope</li>
         <li><b>Context Agent:</b> Retrieves project-scoped pgvector memory</li>
         <li><b>Domain Agent:</b> Enforces security, idempotency, and framework rules</li>
-        <li><b>Synthesizer:</b> Produces bulletproof prompt templates</li>
+        <li><b>Synthesizer:</b> Produces bulletproof prompt specifications in ~420ms</li>
       </ul>
     </td>
     <td width="50%">
-      <h3 align="center">🔐 1-Click Google Sign-In & Onboarding</h3>
+      <h3 align="center">🔐 1-Click Google Sign-In</h3>
       <p>Frictionless developer onboarding:</p>
       <ul>
-        <li>Powered by <b>Firebase Authentication (Google OAuth 2.0)</b></li>
-        <li>Zero-configuration guest sandbox for instant live testing</li>
-        <li>Interactive profile configuration (Role, hobbies, tech stack)</li>
+        <li><b>Firebase Authentication</b> with Google OAuth 2.0</li>
+        <li>Zero-config guest sandbox for instant live testing</li>
+        <li>Interactive profile configuration (role, hobbies, tech stack)</li>
         <li>Instant IDE routing vs Web Console experience</li>
       </ul>
     </td>
   </tr>
   <tr>
     <td width="50%">
-      <h3 align="center">⚡ Interactive Live Diff Sandbox</h3>
-      <p>Demonstrates architectural contrast in real-time:</p>
+      <h3 align="center">⚡ Live Diff Sandbox</h3>
+      <p>Real-time architectural contrast:</p>
       <ul>
         <li>Toggle between <b>Synthesized Spec</b> and <b>Added Diff</b></li>
         <li>Inspect positive boundaries (asyncpg, Pydantic v2)</li>
@@ -82,7 +97,29 @@ Modern AI coding agents (Claude Code, Cursor IDE, Google Antigravity, GitHub Cop
         <li>Exposes <code>kira_enhance</code>, <code>get_kira_memories</code>, <code>kira_extract</code></li>
         <li>Auto-intercepts prompts before your IDE agent writes code</li>
         <li>Supports stdio and remote HTTPS SSE streaming</li>
-        <li>Telemetry and latency tracing decorators on every call</li>
+        <li>Latency tracing decorators on every call</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3 align="center">🗺️ Knowledge Graph Visualizer</h3>
+      <p>See your project's brain:</p>
+      <ul>
+        <li>Interactive constellation of memories, tech stack, and constraints</li>
+        <li>Auto-clusters by project scope and domain category</li>
+        <li>Visual exploration of how KIRA connects your architectural decisions</li>
+        <li>Real-time updates as new memories are extracted</li>
+      </ul>
+    </td>
+    <td width="50%">
+      <h3 align="center">💾 Persistent Memory Engine</h3>
+      <p>KIRA never forgets:</p>
+      <ul>
+        <li><b>Auto-extraction:</b> Learns facts from every prompt</li>
+        <li><b>Project-scoped:</b> Each project gets its own memory namespace</li>
+        <li><b>Manual curation:</b> Add, pin, or delete memories</li>
+        <li><b>Multi-tenant:</b> Strict user_id isolation across all data</li>
       </ul>
     </td>
   </tr>
@@ -90,7 +127,7 @@ Modern AI coding agents (Claude Code, Cursor IDE, Google Antigravity, GitHub Cop
 
 ---
 
-## 🏛️ Architecture & The 4-Agent Orchestrator
+## 🏛️ Architecture
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -126,16 +163,16 @@ Modern AI coding agents (Claude Code, Cursor IDE, Google Antigravity, GitHub Cop
            ▼                                                 ▼
 ┌──────────────────────────────────────┐  ┌──────────────────────────────┐
 │         Groq LPU Inference           │  │   Neon Serverless pgvector   │
-│      (llama-3.3-70b-versatile)       │  │ (Profiles, Memories, Traces)│
+│      (llama-3.3-70b-versatile)       │  │ (Profiles, Memories, Traces) │
 │       Sub-500ms Compilation          │  │ Zero-downtime SQLite fallback│
 └──────────────────────────────────────┘  └──────────────────────────────┘
 ```
 
 ---
 
-## 🔌 1-Click Agent Integration (MCP)
+## 🔌 1-Click IDE Integration (MCP)
 
-Drop the directive into your project root. Your agent will autonomously consult KIRA before implementing code:
+Drop the integration directive into your project root. Your agent will autonomously consult KIRA before writing any code.
 
 <details>
 <summary><b>🤖 Claude Code (<code>CLAUDE.md</code>)</b></summary>
@@ -171,106 +208,64 @@ You are connected to the KIRA Prompt Enhancement MCP Server.
 
 ```markdown
 # .cursorrules — KIRA Prompt Intelligence Directive
-Connect to KIRA MCP (https://api.promptforge.ai/mcp/sse).
-Always execute `kira_enhance` to fetch verified architectural constraints and active project memory before generating boilerplate code.
+Connect to KIRA MCP (https://your-backend.onrender.com/mcp/sse).
+Always execute `kira_enhance` to fetch verified architectural constraints
+and active project memory before generating boilerplate code.
 ```
 </details>
 
----
+<details>
+<summary><b>🔧 Any MCP-Compatible Agent (JSON Config)</b></summary>
 
-## 🚢 Step-by-Step Deployment Guide
-
-Follow these verified steps to deploy KIRA to production in under 10 minutes:
-
-### Step 1: Provision Neon Serverless PostgreSQL
-1. Sign up at [neon.tech](https://neon.tech) and create a free PostgreSQL database.
-2. Copy the pooled connection string:
-   ```
-   postgresql://username:password@ep-cool-sample-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
-   ```
-
-### Step 2: Deploy Backend (Render or Railway)
-1. Fork or push this repository to GitHub.
-2. In **Render** ([render.com](https://render.com)):
-   - Click **New +** → **Web Service** → Select your `Carltonkenny/KIRA` repository.
-   - **Root Directory**: `backend`
-   - **Environment**: `Python 3`
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-   - **Environment Variables**:
-     ```ini
-     GROQ_API_KEY=gsk_your_groq_api_key_here
-     DATABASE_URL=postgresql://username:password@ep-cool-...neon.tech/neondb?sslmode=require
-     PORT=8090
-     ALLOWED_ORIGINS=*
-     ```
-3. Click **Deploy Web Service** and note your public URL (e.g. `https://kira-backend.onrender.com`).
-
-### Step 3: Configure Firebase Auth (Google Sign-In)
-1. Open the [Firebase Console](https://console.firebase.google.com/) and create a project.
-2. Go to **Build** → **Authentication** → **Sign-in method** → Enable **Google**.
-3. Under **Project Settings** → **General**, register a Web App and copy your config:
-   - `apiKey`
-   - `authDomain`
-   - `projectId`
-4. Add your deployment domain (e.g. `your-app.web.app` or `your-app.vercel.app`) to **Authorized domains** in Firebase Authentication settings.
-
-### Step 4: Deploy Frontend (Firebase Hosting or Vercel)
-
-#### Option A: Deploy to Firebase Hosting
-```bash
-# 1. Install Firebase CLI (if not already installed)
-npm install -g firebase-tools
-
-# 2. Login to Firebase
-firebase login
-
-# 3. Initialize in the project root
-firebase init hosting
-# - Public directory: frontend/dist
-# - Configure as a single-page app (SPA): Yes
-# - Set up automatic builds: No
-
-# 4. Build and deploy
-cd frontend
-npm run build
-cd ..
-firebase deploy --only hosting
+```json
+{
+  "mcp": {
+    "kira": {
+      "type": "sse",
+      "url": "https://your-backend.onrender.com/mcp/sse",
+      "enabled": true
+    }
+  }
+}
 ```
 
-#### Option B: Deploy to Vercel (1-Click)
-1. Go to [vercel.com](https://vercel.com) → **Add New Project** → Import `Carltonkenny/KIRA`.
-2. Configure settings:
-   - **Root Directory**: `frontend`
-   - **Framework Preset**: `Vite`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-3. Add Environment Variables:
-   ```ini
-   VITE_API_URL=https://kira-backend.onrender.com
-   VITE_FIREBASE_API_KEY=your_firebase_api_key
-   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-   VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
-   ```
-4. Click **Deploy**. Your app is live!
+For local stdio mode:
+```json
+{
+  "mcp": {
+    "kira": {
+      "type": "local",
+      "command": ["python", "backend/mcp_server.py"],
+      "enabled": true
+    }
+  }
+}
+```
+</details>
 
 ---
 
 ## 💻 Local Development
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 18+ & npm
-- Free Groq API Key ([console.groq.com](https://console.groq.com))
+
+| Tool | Version | Link |
+|------|---------|------|
+| Python | 3.11+ | [python.org](https://python.org) |
+| Node.js | 18+ | [nodejs.org](https://nodejs.org) |
+| Groq API Key | Free | [console.groq.com](https://console.groq.com) |
+
+### Quick Start
 
 ```bash
-# 1. Clone repository
+# 1. Clone the repository
 git clone https://github.com/Carltonkenny/KIRA.git
 cd KIRA
 
-# 2. Setup Backend
+# 2. Start the Backend
 cd backend
 python -m venv venv
+
 # Windows:
 .\venv\Scripts\activate
 # macOS/Linux:
@@ -278,55 +273,198 @@ source venv/bin/activate
 
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env and paste your GROQ_API_KEY
+# Edit .env → paste your GROQ_API_KEY (and optionally DATABASE_URL for Neon)
+
 python -m uvicorn main:app --port 8090 --reload
 
-# 3. Setup Frontend (in a new terminal)
-cd ../frontend
+# 3. Start the Frontend (new terminal)
+cd frontend
 npm install
 npm run dev
-# Open http://localhost:5173
+
+# 4. Open http://localhost:5173
+```
+
+> **Note:** Without a `DATABASE_URL`, KIRA automatically falls back to local SQLite. All features work identically — Neon PostgreSQL is only required for production multi-tenant persistence.
+
+---
+
+## ☁️ Cloud Deployment
+
+### Backend → Render (Free Tier)
+
+1. Push this repo to GitHub
+2. Go to [render.com](https://render.com) → **New +** → **Web Service**
+3. Connect your `Carltonkenny/KIRA` repository
+4. Settings:
+   - **Root Directory:** `backend`
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+5. Add Environment Variables:
+   ```
+   GROQ_API_KEY=gsk_your_key_here
+   DATABASE_URL=postgresql://user:pass@host/neondb?sslmode=require
+   PORT=8090
+   ALLOWED_ORIGINS=*
+   ```
+
+### Frontend → Vercel (1-Click) or Firebase Hosting
+
+**Vercel:**
+1. Import `Carltonkenny/KIRA` → Root: `frontend` → Framework: `Vite`
+2. Add env: `VITE_API_URL=https://your-backend.onrender.com`
+
+**Firebase Hosting:**
+```bash
+cd frontend && npm run build && cd ..
+firebase deploy --only hosting
+```
+
+### Database → Neon (Free)
+
+1. Sign up at [neon.tech](https://neon.tech)
+2. Create a PostgreSQL database
+3. Copy the pooled connection string → set as `DATABASE_URL`
+4. Tables auto-create on first backend startup
+
+---
+
+## 📂 Project Structure
+
+```
+KIRA/
+├── backend/                   # FastAPI + FastMCP Backend
+│   ├── routes/                # Modular API routers
+│   │   ├── auth.py            #   → Firebase session management
+│   │   ├── refine.py          #   → 4-agent prompt refinement
+│   │   ├── memories.py        #   → CRUD memory operations
+│   │   ├── profile.py         #   → User preferences
+│   │   ├── graph.py           #   → Knowledge graph API
+│   │   ├── mcp.py             #   → MCP log tracking
+│   │   └── schemas.py         #   → Pydantic request/response models
+│   ├── classifier.py          # Heuristic skip classifier
+│   ├── config.py              # Environment & LLM provider config
+│   ├── database.py            # Neon PostgreSQL + SQLite fallback
+│   ├── decorators.py          # Latency tracing & telemetry
+│   ├── main.py                # FastAPI entrypoint with lifespan
+│   ├── mcp_server.py          # FastMCP server (stdio + SSE)
+│   ├── memory.py              # Memory embedding & retrieval
+│   ├── refiner.py             # 4-agent LLM pipeline via Groq
+│   ├── schema.sql             # Database DDL (PostgreSQL/SQLite)
+│   ├── requirements.txt       # Pinned Python dependencies
+│   └── tests/                 # Test suite
+│       ├── test_classifier.py
+│       ├── test_database.py
+│       ├── test_refiner.py
+│       ├── test_integration.py
+│       ├── test_e2e_api.py
+│       └── test_stress_jailbreak.py
+│
+├── frontend/                  # React 19 + TypeScript + Vite 8
+│   ├── src/
+│   │   ├── App.tsx            # Root app shell (Landing ↔ Console)
+│   │   ├── main.tsx           # React DOM entrypoint
+│   │   ├── types.ts           # TypeScript interfaces
+│   │   ├── index.css          # Design system tokens & animations
+│   │   ├── components/        # UI Components
+│   │   │   ├── AuthModal.tsx          # Google OAuth sign-in modal
+│   │   │   ├── OnboardingModal.tsx    # Developer profile setup
+│   │   │   ├── ProfileModal.tsx       # User preferences editor
+│   │   │   ├── McpModal.tsx           # IDE connection hub
+│   │   │   ├── HomeTab.tsx            # ChatGPT-style prompt interface
+│   │   │   ├── SessionsTab.tsx        # History & MCP logs
+│   │   │   ├── GraphTab.tsx           # Knowledge graph visualizer
+│   │   │   ├── MemoryTab.tsx          # Memory CRUD manager
+│   │   │   ├── Header.tsx             # Navigation & auth controls
+│   │   │   ├── NeuralBackground.tsx   # Animated particle canvas
+│   │   │   ├── CustomCursor.tsx       # Premium cursor effect
+│   │   │   ├── LandingPage.tsx        # Landing page shell
+│   │   │   └── landing/              # 13 landing page sections
+│   │   ├── hooks/
+│   │   │   ├── useApi.ts             # All API calls & state management
+│   │   │   └── useMcpStatus.ts       # MCP connection monitoring
+│   │   └── lib/
+│   │       └── firebase.ts           # Firebase SDK & Google OAuth
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tailwind.config.js
+│
+├── agent_configs/             # Pre-built IDE integration files
+│   ├── claude_desktop.json
+│   ├── cursor.json
+│   ├── opencode.jsonc
+│   └── antigravity.md
+│
+├── docs/                      # Documentation
+│   ├── PRD.md                 # Product Requirements Document
+│   ├── REQUIREMENTS.md        # Technical Requirements
+│   └── KIRA_REPORT.md         # Architecture & Design Report
+│
+├── render.yaml                # 1-click Render deployment config
+├── firebase.json              # Firebase Hosting config
+├── DEPLOYMENT.md              # Step-by-step deployment guide
+├── GETTING_STARTED.md         # Quick start guide
+└── TEST_REPORT.md             # Test execution results
 ```
 
 ---
 
-## 📂 Repository Organization
+## 🧪 Running Tests
 
+```bash
+cd backend
+source venv/bin/activate  # or .\venv\Scripts\activate on Windows
+pytest tests/ -v
 ```
-KIRA/
-├── backend/                  # FastAPI & FastMCP Architecture
-│   ├── routes/               # Modular API routers (refine, memories, profile, mcp, auth)
-│   ├── classifier.py         # Heuristic skip classifier (bypasses non-prompts)
-│   ├── config.py             # App environment variables & settings
-│   ├── database.py           # Neon PostgreSQL connection pooler + SQLite fallback
-│   ├── decorators.py         # Latency tracing & telemetry decorators
-│   ├── main.py               # FastAPI entrypoint with lifespan DB initialization
-│   ├── mcp_server.py         # FastMCP server exposing kira_enhance & memories
-│   ├── memory.py             # Memory embedding & vector retrieval logic
-│   ├── refiner.py            # 4-Agent LLM compilation via Groq LPU
-│   └── requirements.txt      # Pinned Python dependencies
-│
-├── frontend/                 # React 19 + TypeScript + Vite Web Application
-│   ├── src/
-│   │   ├── components/       # UI Components & Modals (Auth, Onboarding, Profile, Mcp)
-│   │   │   └── landing/      # High-fidelity landing page sections & interactive demo
-│   │   ├── lib/              # Firebase Google OAuth & SDK helpers
-│   │   ├── hooks/            # Custom React hooks (scroll reveal, demo gate)
-│   │   ├── App.tsx           # Main application routing (Landing ↔ Console)
-│   │   └── index.css         # Custom tokens, blueprint grid, aurora glow
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── agent_configs/            # IDE Directive presets (.agents, CLAUDE.md, .cursorrules)
-├── docs/                     # PRD, Architecture Specs & Test Reports
-├── DEPLOYMENT.md             # Detailed production deployment cookbook
-└── README.md                 # Project showcase & documentation
-```
+
+Test coverage includes:
+- **Unit:** Classifier logic, database operations, refiner pipeline
+- **Integration:** API endpoint contracts, memory CRUD cycles
+- **E2E:** Full prompt → refinement → memory extraction flow
+- **Security:** Jailbreak resistance and prompt injection defense
+
+---
+
+## 🛣️ Roadmap
+
+- [x] 4-agent parallel prompt pipeline
+- [x] Neon PostgreSQL with pgvector semantic memory
+- [x] Firebase Google OAuth 2.0
+- [x] Multi-tenant user isolation
+- [x] Interactive knowledge graph visualizer
+- [x] FastMCP server (stdio + SSE)
+- [x] Landing page with live demo widget
+- [x] ChatGPT-style conversational interface
+- [ ] Cinematic video ads (Google Flow I2V)
+- [ ] Platform-specific ad campaigns (Twitter/X, LinkedIn, Reddit)
+- [ ] Team workspaces & shared memory pools
+- [ ] VS Code extension marketplace listing
+- [ ] Prompt versioning & rollback
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feat/your-feature`)
+3. Commit your changes (`git commit -m 'feat: add your feature'`)
+4. Push to the branch (`git push origin feat/your-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
 
-Made with ⚡ by [Carlton Kenny](https://github.com/Carltonkenny) • Built for the 2026 AI Agent Ecosystem
+**Built with ⚡ by [Carlton Kenny](https://github.com/Carltonkenny)**
+
+Made for the 2026 AI Agent Ecosystem
 
 </div>

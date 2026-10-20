@@ -43,5 +43,18 @@ benchmark_full_data.json
 stress_test_report.json
 memory_wiring_result.json
 backend/init_neon_tables.py
+
+# Heavy media assets (local only — not for GitHub)
+marketing_assets/
 recordings/
+tools/recording/
+
+# Benchmark & evaluation scripts (local dev only)
+run_comprehensive_benchmark.py
+run_live_eval.py
+backend/benchmark_edge_cases.py
+backend/kira_mcp_live_test.py
+backend/quick_verify.py
+backend/fast_verify.py
+backend/migrate_to_neon.py
 
