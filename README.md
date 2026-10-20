@@ -22,7 +22,8 @@ They forget your schemas. They repeat deprecated patterns. They hallucinate libr
 
 <br/>
 
-[🚀 Live Demo](https://knowledgeable-interface-for-refinem.vercel.app/) •
+[🚀 Live Production App](https://kira-git-master-carlton-kennys-projects.vercel.app/) •
+[⚡ Backend API](https://kira-l18t.onrender.com/health) •
 [📖 Documentation](#-local-development) •
 [🔌 Connect Your IDE](#-1-click-ide-integration-mcp) •
 [☁️ Deploy](#-cloud-deployment)
